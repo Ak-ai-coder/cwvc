@@ -1,3 +1,4 @@
+package org.example;
 import org.json.simple.JSONObject;
 
 import java.sql.*;

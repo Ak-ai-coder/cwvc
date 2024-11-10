@@ -1,8 +1,8 @@
+package org.example;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-
 public class User {
     private int userID;
     private String username;
