@@ -46,7 +46,9 @@ public class User {
             throw new IllegalArgumentException("Invalid email format.");
         }
     }
-
+    public  void addToReadingHistory(String articleTitle){
+        this.readingHistory.add(articleTitle);
+    }
     // Methods for user actions
     public void login() {
         this.loginTime = LocalDateTime.now();

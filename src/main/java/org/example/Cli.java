@@ -13,16 +13,16 @@ public class Cli {
         UserService userService = new UserService();
         Scanner scanner = new Scanner(System.in);
         String loggedInUsername = null;
+        System.out.println("=== Welcome to News Article Reader ===");
 
         // Initialize articles (simplified for this version)
         List<JSONObject> articles = new ArrayList<>();
 
         // Display menu
-        System.out.println("1. Sign Up");
-        System.out.println("2. Login");
-        System.out.println("3. View Reading History");
-        System.out.println("4. Generate Recommendations");
-        System.out.println("5. Exit");
-        // Implement the logic for each case
+            System.out.println("1. Sign Up");
+            System.out.println("2. Login");
+            System.out.println("3. View Reading History");
+            System.out.println("4. Generate Recommendations");
+            System.out.println("5. Exit");
     }
 }
