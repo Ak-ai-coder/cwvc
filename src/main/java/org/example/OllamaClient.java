@@ -12,15 +12,28 @@ public class OllamaClient {
     // Method to generate a recommendation based on a user's most-read category
     public String generateRecommendationForMostReadCategory(String username, List<JSONObject> allArticles) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            // Find the most-read category
             String mostReadCategory = getMostReadCategory(username, connection);
+
             if (mostReadCategory == null) {
-                return "No category data available.";
+                return "No category data available for this user.";
             }
-            // Logic for finding and returning an article
+
+            // Find an article in that category that is not in the reading history or favorites
+            JSONObject article = findArticleByCategory(username, mostReadCategory, allArticles, connection);
+
+            if (article != null) {
+                // Add the recommended article to the reading history
+                addArticleToReadingHistory(username, article, connection);
+                return "Recommended Article:\nTitle: " + article.get("headline") + "\nCategory: " + article.get("category") +
+                        "\nDescription: " + article.get("short_description") + "\nDate: " + article.get("date");
+            } else {
+                return "No new articles available for the category: " + mostReadCategory;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
+            return "Error: Unable to connect to the database.";
         }
-        return "Error generating recommendation.";
     }
 
     private String getMostReadCategory(String username, Connection connection) throws SQLException {
