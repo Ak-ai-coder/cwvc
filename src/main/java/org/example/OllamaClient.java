@@ -2,7 +2,7 @@ package org.example;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-
+import org.example.UserService;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -21,6 +21,11 @@ public class OllamaClient {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/NewsArticles";
     private static final String DB_USER = "root";
     private static final String DB_PASSWORD = "";
+    private String prompt;
+
+    public OllamaClient(String prompt) {
+        this.prompt = prompt;
+    }
 
     // Method to generate a recommendation based on a user's most-read category
     public String generateRecommendationForMostReadCategory(String username, List<JSONObject> allArticles) {
@@ -59,6 +64,16 @@ public class OllamaClient {
             }
         }
         return null;
+    }
+    private void addArticleToReadingHistory(String username, JSONObject article, Connection connection) throws SQLException {
+        String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, 0, 0, 0)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, username);
+            statement.setString(2, (String) article.get("headline"));
+            statement.setString(3, (String) article.get("category"));
+            statement.executeUpdate();
+            System.out.println("Reading history entry added.");
+        }
     }
     private JSONObject findArticleByCategory(String username, String category, List<JSONObject> allArticles, Connection connection) throws SQLException {
         List<String> readTitles = new ArrayList<>();

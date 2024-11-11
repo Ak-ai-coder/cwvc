@@ -10,16 +10,15 @@ public class UserService {
     private static final String DB_PASSWORD = ""; // Replace with your DB password
 
     // Sign-up method
-    public void signUp(int userID, String username, String password, String email, String preferences) {
+    public void signUp( String username, String password, String email, String preferences) {
         if (isUserExists(username)) {
             System.out.println("Username already exists. Please choose another.");
         } else if (password.length() < 8) {
             System.out.println("Password must be at least 8 characters long.");
         } else {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "INSERT INTO Users (userID, username, password, email) VALUES (?, ?, ?, ?)";
+                String sql = "INSERT INTO Users (username, password, email) VALUES (?, ?, ?)";
                 PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setInt(1, userID);
                 statement.setString(2, username);
                 statement.setString(3, password);
                 statement.setString(4, email);
@@ -38,7 +37,7 @@ public class UserService {
     // Login method - checks if a user exists in the database
     public boolean login(String username, String password) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "SELECT * FROM Users WHERE username = ? AND password = ?";
+            String sql = "SELECT * FROM User WHERE username = ? AND password = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             statement.setString(2, password);
@@ -60,7 +59,7 @@ public class UserService {
 
     // Check if a user exists in the database
     private boolean isUserExists(String username) {
-        String sql = "SELECT username FROM Users WHERE username = ?";
+        String sql = "SELECT username FROM User WHERE username = ?";
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
@@ -80,7 +79,7 @@ public class UserService {
         }
 
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "SELECT * FROM Users WHERE email = ?";
+            String sql = "SELECT * FROM User WHERE email = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, email);
 
@@ -99,7 +98,7 @@ public class UserService {
     // Method to update the password for the user in the database
     private void updatePassword(String email, String newPassword) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "UPDATE Users SET password = ? WHERE email = ?";
+            String sql = "UPDATE User SET password = ? WHERE email = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, newPassword);
             statement.setString(2, email);
@@ -116,7 +115,7 @@ public class UserService {
     // Update login time - track only on actual login
     private void updateLoginTime(String username) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "UPDATE Users SET loginTime = NOW() WHERE username = ?";
+            String sql = "UPDATE User SET loginTime = NOW() WHERE username = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             statement.executeUpdate();
@@ -128,7 +127,7 @@ public class UserService {
     // Logout method - updates logout time using username
     public void logout(String username) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "UPDATE Users SET logoutTime = NOW() WHERE username = ?";
+            String sql = "UPDATE User SET logoutTime = NOW() WHERE username = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             statement.executeUpdate();
