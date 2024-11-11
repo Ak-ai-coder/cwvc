@@ -9,17 +9,18 @@ public class User {
     private String password;
     private String email;
     private List<String> readingHistory;
-    private String preferences;
+    ;
     private LocalDateTime loginTime;
     private LocalDateTime logoutTime;
+    private List<LocalDateTime[]> loginLogoutHistory;
 
     // Constructor
-    public User(int userID, String username, String password, String email, String preferences) {
+    public User(int userID, String username, String password, String email) {
         this.userID = userID;
         this.username = username;
         setPassword(password);
         setEmail(email);
-        this.preferences = preferences;
+        this.loginLogoutHistory = new ArrayList<>();
         this.readingHistory = new ArrayList<>();
     }
 
@@ -28,7 +29,7 @@ public class User {
     public String getUsername() { return username; }
     public String getPassword() { return password; }
     public String getEmail() { return email; }
-    public String getPreferences() { return preferences; }
+
     public List<String> getReadingHistory() { return new ArrayList<>(readingHistory); }
 
     public void setUsername(String username) { this.username = username; }
@@ -59,7 +60,18 @@ public class User {
         this.logoutTime = LocalDateTime.now();
         System.out.println(username + " logged out at: " + formatDateTime(logoutTime));
     }
-
+    private void storeLoginLogoutHistory() {
+        loginLogoutHistory.add(new LocalDateTime[]{loginTime, logoutTime});
+    }
+    public void clearLoginLogoutHistory() {
+        loginLogoutHistory.clear();
+        System.out.println("Login/logout history cleared for " + username);
+    }
+    public void printLoginLogoutHistory() {
+        for (LocalDateTime[] session : loginLogoutHistory) {
+            System.out.println("Login: " + formatDateTime(session[0]) + ", Logout: " + formatDateTime(session[1]));
+        }
+    }
     // Helper methods
     private boolean isValidEmail(String email) {
         String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
@@ -69,5 +81,8 @@ public class User {
     private String formatDateTime(LocalDateTime dateTime) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return dateTime.format(formatter);
+    }
+    public String toString() {
+        return "User(" + "UserID=" + userID + ", Username='" + username + "', email='" + email + ")";
     }
 }
