@@ -175,6 +175,60 @@ public class UserService {
                 e.printStackTrace();
             }
     }
+    public void updateReadingHistory(String username, String title, String category, Integer rating, Boolean liked, Boolean skipped) {
+            String updateHistorySQL = "UPDATE ReadingHistory SET Rating = ?, Liked = ?, Skipped = ? WHERE Username = ? AND Title = ?";
+            String insertFavoriteSQL = "INSERT INTO Favorites (Username, Title, Category, Rating, Liked) VALUES (?, ?, ?, ?, ?)";
+            String updateFavoriteSQL = "UPDATE Favorites SET rating = ?, liked = ? WHERE username = ? AND article_title = ?";
+
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                // Step 1: Update ReadingHistory entry
+                try (PreparedStatement historyStmt = connection.prepareStatement(updateHistorySQL)) {
+                    historyStmt.setInt(1, (rating != null) ? rating : 0);
+                    historyStmt.setInt(2, liked ? 1 : 0);
+                    historyStmt.setInt(3, skipped ? 1 : 0);
+                    historyStmt.setString(4, username);
+                    historyStmt.setString(5, title);
+
+                    int rowsUpdated = historyStmt.executeUpdate();
+                    if (rowsUpdated > 0) {
+                        System.out.println("Reading history entry updated.");
+                    }
+                }
+
+                // Step 2: Add to or update UserRecommendations if criteria are met
+                if (rating > 0 || liked) {
+                    // Check if the article is already in UserRecommendations
+                    try (PreparedStatement checkStmt = connection.prepareStatement("SELECT * FROM Favorites WHERE username = ? AND title = ?")) {
+                        checkStmt.setString(1, username);
+                        checkStmt.setString(2, title);
+                        ResultSet resultSet = checkStmt.executeQuery();
+
+                        if (resultSet.next()) {
+                            // If entry exists, update it
+                            try (PreparedStatement updateStmt = connection.prepareStatement(updateFavoriteSQL)) {
+                                updateStmt.setInt(1, rating);
+                                updateStmt.setBoolean(2, liked);
+                                updateStmt.setString(3, username);
+                                updateStmt.setString(4, title);
+                                updateStmt.executeUpdate();
+                            }
+                        } else {
+                            // If entry does not exist, insert it
+                            try (PreparedStatement insertStmt = connection.prepareStatement(insertFavoriteSQL)) {
+                                insertStmt.setString(1, username);
+                                insertStmt.setString(2, title);
+                                insertStmt.setString(3, category);
+                                insertStmt.setInt(4, rating);
+                                insertStmt.setBoolean(5, liked);
+                                insertStmt.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
     // View reading history for a user
     public void viewReadingHistory(String username) {
         String sql = "SELECT Title, Category, Rating, Liked, Skipped FROM ReadingHistory WHERE Username = ?";
@@ -206,5 +260,38 @@ public class UserService {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+    public void viewFavorites(String username) {
+            String sql = "SELECT title, category, rating, liked FROM Favorites WHERE username = ?";
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+
+                statement.setString(1, username);
+                ResultSet resultSet = statement.executeQuery();
+
+                System.out.println("Favorite Articles:");
+                boolean hasRecords = false;
+
+                while (resultSet.next()) {
+                    hasRecords = true;
+                    String title = resultSet.getString("title");
+                    String category = resultSet.getString("category");
+                    int rating = resultSet.getInt("rating");
+                    boolean liked = resultSet.getInt("liked") == 1;
+
+                    System.out.println("Title: " + title);
+                    System.out.println("Category: " + category);
+                    System.out.println("Rating: " + rating);
+                    System.out.println("Liked: " + (liked ? "Yes" : "No"));
+                    System.out.println("--------------------------");
+                }
+
+                if (!hasRecords) {
+                    System.out.println("No favorite articles found for this user.");
+                }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
     }
 }
