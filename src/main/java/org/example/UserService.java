@@ -17,13 +17,13 @@ public class UserService {
             System.out.println("Password must be at least 8 characters long.");
         } else {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "INSERT INTO Users (userID, username, password, email, preferences) VALUES (?, ?, ?, ?, ?)";
+                String sql = "INSERT INTO Users (userID, username, password, email) VALUES (?, ?, ?, ?)";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setInt(1, userID);
                 statement.setString(2, username);
                 statement.setString(3, password);
                 statement.setString(4, email);
-                statement.setString(5, preferences);
+
 
                 int rowsInserted = statement.executeUpdate();
                 if (rowsInserted > 0) {
@@ -137,7 +137,44 @@ public class UserService {
             e.printStackTrace();
         }
     }
+    public void viewLoginLogoutHistory(String username) {
+            String sql = "SELECT loginTime, logoutTime FROM User WHERE username = ?";
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
 
+                statement.setString(1, username);  // Bind the username instead of userID
+                System.out.println("Checking history for username: " + username);  // Debugging output
+
+                ResultSet resultSet = statement.executeQuery();
+                if (resultSet.next()) {
+                    Timestamp loginTime = resultSet.getTimestamp("loginTime");
+                    Timestamp logoutTime = resultSet.getTimestamp("logoutTime");
+
+                    System.out.println("Login Time: " + (loginTime != null ? loginTime : "Not available"));
+                    System.out.println("Logout Time: " + (logoutTime != null ? logoutTime : "Not available"));
+                } else {
+                    System.out.println("User not found.");  // Will display if no results are found
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
+    public void addToReadingHistory(String username, String title, String category) {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, 0, 0, 0)";
+                PreparedStatement statement = connection.prepareStatement(sql);
+                statement.setString(1, username);
+                statement.setString(2, title);
+                statement.setString(3, category);
+
+                int rowsInserted = statement.executeUpdate();
+                if (rowsInserted > 0) {
+                    System.out.println("Reading history entry added.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
     // View reading history for a user
     public void viewReadingHistory(String username) {
         String sql = "SELECT Title, Category, Rating, Liked, Skipped FROM ReadingHistory WHERE Username = ?";
