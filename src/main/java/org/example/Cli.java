@@ -27,7 +27,8 @@ import java.util.concurrent.Executors;
 import org.example.OllamaClient;
 
 public class Cli  implements Runnable{
-    private static final int NUM_THREADS=5;
+    private static final int NUM_THREADS=1;
+
     private final int threadnumber;
     private static UserService userService=new UserService();
     public Cli(int threadnumber){

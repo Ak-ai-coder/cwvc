@@ -3,7 +3,7 @@ package org.example;
 import java.sql.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
+import java.util.concurrent.Future;
 public class UserService {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/NewsArticles"; // Replace with your DB URL
     private static final String DB_USER = "root"; // Replace with your DB username
@@ -40,28 +40,38 @@ public class UserService {
     }
 
     // Login method - checks if a user exists in the database
-    public boolean login(String username, String password) {
-        final boolean[] loginSuccess = {false};
-        dbExecutor.submit(() -> {
-            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT * FROM Users WHERE username = ? AND password = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                statement.setString(2, password);
 
-                ResultSet resultSet = statement.executeQuery();
-                if (resultSet.next()) {
-                    System.out.println("Login successful!");
-                    updateLoginTime(username);
-                    loginSuccess[0] = true;
-                } else {
-                    System.out.println("Invalid username or password.");
+
+    public boolean login(String username, String password) {
+        try {
+            Future<Boolean> future = dbExecutor.submit(() -> {
+                try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                    String sql = "SELECT * FROM User WHERE username = ? AND password = ?";
+                    PreparedStatement statement = connection.prepareStatement(sql);
+                    statement.setString(1, username);
+                    statement.setString(2, password);
+
+                    ResultSet resultSet = statement.executeQuery();
+                    if (resultSet.next()) {
+                        System.out.println("Login successful!");
+                        updateLoginTime(username);
+                        return true;
+                    } else {
+                        System.out.println("Invalid username or password.");
+                        return false;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    return false;
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        });
-        return loginSuccess[0];
+            });
+
+            // Wait for the result and return it
+            return future.get(); // This blocks until the task is completed
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     // Check if a user exists in the database
@@ -69,7 +79,7 @@ public class UserService {
         final boolean[] userExists = {false};
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT username FROM Users WHERE username = ?";
+                String sql = "SELECT username FROM User WHERE username = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, username);
                 ResultSet resultSet = statement.executeQuery();
@@ -90,7 +100,7 @@ public class UserService {
             }
 
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT * FROM Users WHERE email = ?";
+                String sql = "SELECT * FROM User WHERE email = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, email);
 
@@ -111,7 +121,7 @@ public class UserService {
     private void updatePassword(String email, String newPassword) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "UPDATE Users SET password = ? WHERE email = ?";
+                String sql = "UPDATE User SET password = ? WHERE email = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, newPassword);
                 statement.setString(2, email);
@@ -127,7 +137,7 @@ public class UserService {
     private void updateLoginTime(String username) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "UPDATE Users SET loginTime = NOW() WHERE username = ?";
+                String sql = "UPDATE User SET loginTime = NOW() WHERE username = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, username);
                 statement.executeUpdate();
@@ -141,7 +151,7 @@ public class UserService {
     public void logout(String username) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "UPDATE Users SET logoutTime = NOW() WHERE username = ?";
+                String sql = "UPDATE User SET logoutTime = NOW() WHERE username = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, username);
                 statement.executeUpdate();
@@ -156,7 +166,7 @@ public class UserService {
     public void viewLoginLogoutHistory(String username) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT loginTime, logoutTime FROM Users WHERE username = ?";
+                String sql = "SELECT loginTime, logoutTime FROM User WHERE username = ?";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, username);
                 ResultSet resultSet = statement.executeQuery();
