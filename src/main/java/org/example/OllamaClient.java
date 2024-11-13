@@ -1,8 +1,8 @@
 package org.example;
+
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.example.UserService;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -13,9 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.PreparedStatement;
 
 public class OllamaClient {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/NewsArticles";
@@ -27,26 +24,31 @@ public class OllamaClient {
         this.prompt = prompt;
     }
 
-    // Method to generate a recommendation based on a user's most-read category
-    public String generateRecommendationForMostReadCategory(String username, List<JSONObject> allArticles) {
+    // Method to analyze user preferences and recommend an article
+    public String analyzeAndRecommendArticle(String username, List<JSONObject> allArticles) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            // Find the most-read category
-            String mostReadCategory = getMostReadCategory(username, connection);
+            // Get most-liked category from user's history and favorites
+            String mostLikedCategory = getMostLikedCategory(username, connection);
 
-            if (mostReadCategory == null) {
+            if (mostLikedCategory == null) {
                 return "No category data available for this user.";
             }
 
-            // Find an article in that category that is not in the reading history or favorites
-            JSONObject article = findArticleByCategory(username, mostReadCategory, allArticles, connection);
+            // Find an article from the most-liked category not in reading history or favorites
+            JSONObject article = findArticleByCategory(username, mostLikedCategory, allArticles, connection);
 
             if (article != null) {
-                // Add the recommended article to the reading history
+                // Add article to reading history
                 addArticleToReadingHistory(username, article, connection);
-                return "Recommended Article:\nTitle: " + article.get("headline") + "\nCategory: " + article.get("category") +
-                        "\nDescription: " + article.get("short_description") + "\nDate: " + article.get("date");
+                return "Recommended Article:\n" +
+                        "Title: " + article.get("headline") + "\n" +
+                        "Category: " + article.get("category") + "\n" +
+                        "Author: " + article.get("authors") + "\n" +
+                        "Date: " + article.get("date") + "\n" +
+                        "Link: " + article.get("link") + "\n" +
+                        "Description: " + article.get("short_description");
             } else {
-                return "No new articles available for the category: " + mostReadCategory;
+                return "No new articles available for the category: " + mostLikedCategory;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -54,8 +56,12 @@ public class OllamaClient {
         }
     }
 
-    private String getMostReadCategory(String username, Connection connection) throws SQLException {
-        String sql = "SELECT Category, COUNT(Category) AS CategoryCount FROM ReadingHistory WHERE Username = ? GROUP BY Category ORDER BY CategoryCount DESC LIMIT 1";
+    private String getMostLikedCategory(String username, Connection connection) throws SQLException {
+        String sql = "SELECT Category, COUNT(Category) AS CategoryCount " +
+                "FROM ReadingHistory " +
+                "WHERE Username = ? " +
+                "GROUP BY Category " +
+                "ORDER BY CategoryCount DESC LIMIT 1";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
             ResultSet resultSet = statement.executeQuery();
@@ -65,6 +71,7 @@ public class OllamaClient {
         }
         return null;
     }
+
     private void addArticleToReadingHistory(String username, JSONObject article, Connection connection) throws SQLException {
         String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, 0, 0, 0)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -72,9 +79,10 @@ public class OllamaClient {
             statement.setString(2, (String) article.get("headline"));
             statement.setString(3, (String) article.get("category"));
             statement.executeUpdate();
-            System.out.println("Reading history entry added.");
+            System.out.println("Article added to reading history.");
         }
     }
+
     private JSONObject findArticleByCategory(String username, String category, List<JSONObject> allArticles, Connection connection) throws SQLException {
         List<String> readTitles = new ArrayList<>();
         String sql = "SELECT Title FROM ReadingHistory WHERE Username = ? UNION SELECT Title FROM Favorites WHERE Username = ?";
@@ -96,6 +104,7 @@ public class OllamaClient {
         }
         return null;
     }
+
     public String sendRequest() throws IOException {
         URL url = new URL("http://localhost:11434/api/generate");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();

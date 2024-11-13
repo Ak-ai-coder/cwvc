@@ -6,6 +6,8 @@ import org.json.simple.JSONObject;
 import java.util.Collections;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.ArrayList;
@@ -20,10 +22,26 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.example.OllamaClient;
 
-public class Cli {
+public class Cli  implements Runnable{
+    private static final int NUM_THREADS=5;
+    private final int threadnumber;
+    private static UserService userService=new UserService();
+    public Cli(int threadnumber){
+        this.threadnumber=threadnumber;
+    }
         public static void main(String[] args) {
-            UserService userService = new UserService();
+            Executor executorService = Executors.newFixedThreadPool(NUM_THREADS);
+            for (int i = 1; i <= NUM_THREADS; i++) {
+                executorService.execute(new Cli(i));
+            }
+            ((ExecutorService) executorService).shutdown();
+        }
+        public void run(){
+            System.out.println("Starting CLI on Thread-"+threadnumber);
             Scanner scanner = new Scanner(System.in);
             int choice;
             String loggedInUsername = null;
@@ -60,9 +78,7 @@ public class Cli {
                         String password = scanner.nextLine();
                         System.out.print("Enter Email: ");
                         String email = scanner.nextLine();
-                        System.out.print("Enter Preferences: ");
-                        String preferences = scanner.nextLine();
-                        userService.signUp(username, password, email, preferences);
+                        userService.signUp(username, password, email);
                         break;
 
                     case 2:
@@ -161,8 +177,18 @@ public class Cli {
                             break;
                         }
 
-                        OllamaClient ollamaClient = new OllamaClient("");
-                        String recommendation = ollamaClient.generateRecommendationForMostReadCategory(loggedInUsername, jsonDataList);
+                        // Initialize the OllamaClient with an appropriate prompt (e.g., a message or category name)
+                        OllamaClient ollamaClient = new OllamaClient("Analyzing user preferences");
+
+                        // Fetch user preferences
+                        String mostReadCategory = ollamaClient.analyzeAndRecommendArticle(loggedInUsername, jsonDataList);
+                        if (mostReadCategory.startsWith("Error")) {
+                            System.out.println(mostReadCategory);
+                            break;
+                        }
+
+                        // Get recommendation based on the most-read category
+                        String recommendation = ollamaClient.analyzeAndRecommendArticle(loggedInUsername, jsonDataList);
                         System.out.println(recommendation);
                         break;
 
@@ -189,6 +215,7 @@ public class Cli {
             } while (choice != 10);
 
             scanner.close();
+            System.out.println("CLI on Thread-"+threadnumber);
         }
 
         // Method to unzip the file
