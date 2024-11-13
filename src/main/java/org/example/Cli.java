@@ -178,19 +178,16 @@ public class Cli  implements Runnable{
                             break;
                         }
 
-                        // Initialize the OllamaClient with an appropriate prompt (e.g., a message or category name)
-                        OllamaClient ollamaClient = new OllamaClient("Analyzing user preferences");
+                        // Initialize the OllamaClient with an appropriate prompt
+                        OllamaClient ollamaClient = new OllamaClient("Analyzing user reading history for recommendations");
 
-                        // Fetch user preferences
-                        String mostReadCategory = ollamaClient.analyzeAndRecommendArticle(loggedInUsername, jsonDataList);
-                        if (mostReadCategory.startsWith("Error")) {
-                            System.out.println(mostReadCategory);
-                            break;
-                        }
-
-                        // Get recommendation based on the most-read category
+                        // Analyze user preferences and get a recommendation
                         String recommendation = ollamaClient.analyzeAndRecommendArticle(loggedInUsername, jsonDataList);
-                        System.out.println(recommendation);
+                        if (recommendation.startsWith("Error")) {
+                            System.out.println(recommendation);
+                        } else {
+                            System.out.println(recommendation);
+                        }
                         break;
 
                     case 9:
