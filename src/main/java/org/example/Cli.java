@@ -331,7 +331,7 @@ public class Cli  implements Runnable{
                         System.out.println("Invalid choice.");
                 }
 
-                userService.updateReadingHistory(username, title, category, rating, liked, skipped);
+                userService.addToReadingHistory(username, title, category, rating, liked, skipped);
             }
         }
     }

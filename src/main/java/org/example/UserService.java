@@ -238,14 +238,17 @@ public class UserService {
         });
     }
     // Add to reading history
-    public void addToReadingHistory(String username, String title, String category) {
+    public void addToReadingHistory(String username, String title, String category, int rating, boolean liked, boolean skipped) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, 0, 0, 0)";
+                String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, ?, ?, ?)";
                 PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setString(1, username);
                 statement.setString(2, title);
                 statement.setString(3, category);
+                statement.setInt(4, rating);
+                statement.setBoolean(5, liked);
+                statement.setBoolean(6, skipped);
                 statement.executeUpdate();
                 System.out.println("Reading history entry added.");
             } catch (SQLException e) {
