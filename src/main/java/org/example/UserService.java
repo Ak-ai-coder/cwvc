@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
 public class UserService {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/NewsArticles"; // Replace with your DB URL
     private static final String DB_USER = "root"; // Replace with your DB username
@@ -237,6 +238,7 @@ public class UserService {
             }
         });
     }
+
     // Add to reading history
     public void addToReadingHistory(String username, String title, String category, int rating, boolean liked, boolean skipped) {
         dbExecutor.submit(() -> {
