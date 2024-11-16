@@ -22,7 +22,7 @@ public class UserService {
                 System.out.println("Password must be at least 8 characters long.");
             } else {
                 try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                    String sql = "INSERT INTO Users (username, password, email) VALUES (?, ?, ?)";
+                    String sql = "INSERT INTO User (username, password, email) VALUES (?, ?, ?)";
                     PreparedStatement statement = connection.prepareStatement(sql);
                     statement.setString(1, username);
                     statement.setString(2, password);
@@ -283,28 +283,31 @@ public class UserService {
                 }
 
                 // Step 2: Add to or update Favorites if criteria are met
-                if (rating > 0 || (liked != null && liked)) {
+                if ((rating != null && rating > 0) || (liked != null && liked)) {
                     try (PreparedStatement checkStmt = connection.prepareStatement("SELECT * FROM Favorites WHERE Username = ? AND Title = ?")) {
                         checkStmt.setString(1, username);
                         checkStmt.setString(2, title);
                         ResultSet resultSet = checkStmt.executeQuery();
 
                         if (resultSet.next()) {
+                            // If entry exists, update it
                             try (PreparedStatement updateStmt = connection.prepareStatement(updateFavoriteSQL)) {
-                                updateStmt.setInt(1, rating);
-                                updateStmt.setBoolean(2, liked);
+                                updateStmt.setInt(1, (rating != null) ? rating : 0);
+                                updateStmt.setBoolean(2, liked != null && liked);
                                 updateStmt.setString(3, username);
                                 updateStmt.setString(4, title);
                                 updateStmt.executeUpdate();
                             }
                         } else {
+                            // If entry does not exist, insert it
                             try (PreparedStatement insertStmt = connection.prepareStatement(insertFavoriteSQL)) {
                                 insertStmt.setString(1, username);
                                 insertStmt.setString(2, title);
                                 insertStmt.setString(3, category);
-                                insertStmt.setInt(4, rating);
-                                insertStmt.setBoolean(5, liked);
+                                insertStmt.setInt(4, (rating != null) ? rating : 0);
+                                insertStmt.setBoolean(5, liked != null && liked);
                                 insertStmt.executeUpdate();
+                                System.out.println("Article added to favorites.");
                             }
                         }
                     }

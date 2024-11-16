@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -29,11 +28,11 @@ public class Cli implements Runnable {
     }
 
     public static void main(String[] args) {
-        Executor executorService = Executors.newFixedThreadPool(NUM_THREADS);
+        ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
         for (int i = 1; i <= NUM_THREADS; i++) {
             executorService.execute(new Cli(i));
         }
-        ((ExecutorService) executorService).shutdown();
+        executorService.shutdown();
     }
 
     // Method to unzip the file
@@ -118,8 +117,8 @@ public class Cli implements Runnable {
             scanner.nextLine(); // Consume the newline
 
             Integer rating = 0;
-            Boolean liked = false;
-            Boolean skipped = false;
+            boolean liked = false;
+            boolean skipped = false;
 
             switch (choice) {
                 case 1:
@@ -152,6 +151,7 @@ public class Cli implements Runnable {
             }
 
             userService.addToReadingHistory(username, title, category, rating, liked, skipped);
+            userService.updateReadingHistory(username, title, category, rating, liked, skipped);
         }
     }
 
