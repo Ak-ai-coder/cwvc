@@ -292,21 +292,24 @@ public class Cli implements Runnable {
                         break;
                     }
 
-                    // Initialize the OllamaClient with an appropriate prompt and pass the UserService instance
-                    OllamaClient ollamaClient = new OllamaClient("Analyzing user reading history for recommendations", userService);
+                    // Initialize OllamaClient with prompt and userService
+                    OllamaClient ollamaClient = new OllamaClient("Analyzing user preferences for category recommendation", userService);
 
-                    // Analyze user preferences and get a recommendation
-                    String recommendation = ollamaClient.analyzeAndRecommendArticle(loggedInUsername, jsonDataList);
-                    if (recommendation.startsWith("Error")) {
-                        System.out.println(recommendation);
+                    // Get the recommended category from the Ollama model
+                    String recommendedCategory = ollamaClient.analyzeAndRecommendCategory(loggedInUsername, jsonDataList);
+                    if (recommendedCategory.startsWith("Error")) {
+                        System.out.println(recommendedCategory);
                     } else {
-                        System.out.println(recommendation);
-                        // Retrieve the last recommended article and display details if needed
-                        JSONObject lastArticle = ollamaClient.getRecommendedArticle();
-                        if (lastArticle != null) {
-                            System.out.println("Article added to reading history.");
+                        System.out.println("Category recommended by the model: " + recommendedCategory);
+
+                        // Try to find an unread article in the recommended category
+                        JSONObject recommendedArticle = ollamaClient.getArticleForCategory(loggedInUsername, recommendedCategory, jsonDataList);
+                        if (recommendedArticle != null) {
+                            System.out.println(ollamaClient.formatArticleDetails(recommendedArticle));
+                            userService.addToReadingHistory(loggedInUsername, (String) recommendedArticle.get("headline"), recommendedCategory, 0, false, false);
+                            System.out.println("The article has been added to your reading history.");
                         } else {
-                            System.out.println("No new article was added.");
+                            System.out.println("No new articles found for the recommended category: " + recommendedCategory);
                         }
                     }
                     break;
