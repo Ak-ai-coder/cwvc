@@ -19,18 +19,22 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Cli implements Runnable {
+    private static UserService userService;
     private static final int NUM_THREADS = 1;
-    private static final UserService userService = new UserService();
+
     private final int threadnumber;
 
-    public Cli(int threadnumber) {
+    public Cli(int threadnumber,UserService userService) {
         this.threadnumber = threadnumber;
+        this.userService=userService;
     }
 
     public static void main(String[] args) {
+
         ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+
         for (int i = 1; i <= NUM_THREADS; i++) {
-            executorService.execute(new Cli(i));
+            executorService.execute(new Cli(i,userService));
         }
         executorService.shutdown();
     }
