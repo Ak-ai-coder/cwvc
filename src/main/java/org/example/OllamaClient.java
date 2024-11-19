@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class OllamaClient {
@@ -35,31 +36,22 @@ public class OllamaClient {
 
     public String analyzeAndRecommendCategory(String username, List<JSONObject> allArticles) {
         try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            // Get the most common category from the user's reading history and favorites
-            String mostCommonCategory = getMostCommonCategoryFromHistoryAndFavorites(username, connection);
+            List<CategoryWeight> categoryWeights = initializeCategoryWeights(getAvailableCategories(allArticles));
+            updateCategoryWeights(username, categoryWeights, connection);
 
-            // Get available categories from the dataset
-            List<String> validCategories = getAvailableCategories(allArticles);
-            String categoriesString = String.join(", ", validCategories);
+            String recommendedCategory = getRecommendedCategory(categoryWeights);
 
-            // Prepare the prompt for the model, including the available categories
-            this.prompt = "User " + username + " has shown an interest in the " + mostCommonCategory +
-                    " category. Here are the available categories: " + categoriesString +
-                    ". Based on their reading history, recommend the most suitable category.";
+            this.prompt = "User " + username + " has a history of reading articles. Based on the available categories and their interests, suggest the most suitable category from: " +
+                    categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.joining(", ")) + ".";
 
-            // Send the prompt to the model and get the response
             String response = sendRequest();
-
-            // Log the model's raw response for debugging
             System.out.println("Model Response: " + response);
 
-            // Ensure the response is one of the available categories
-            if (validCategories.contains(response.trim())) {
+            if (categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.toList()).contains(response.trim())) {
                 return response.trim();
             } else {
-                // Log fallback to the most common category
-                System.out.println("Falling back to the most common category: " + mostCommonCategory);
-                return mostCommonCategory;
+                System.out.println("Falling back to the most common category: " + recommendedCategory);
+                return recommendedCategory;
             }
         } catch (SQLException | IOException e) {
             e.printStackTrace();
@@ -67,24 +59,45 @@ public class OllamaClient {
         }
     }
 
-    private String getMostCommonCategoryFromHistoryAndFavorites(String username, Connection connection) throws SQLException {
-        String sql = "SELECT Category, COUNT(Category) AS CategoryCount " +
-                "FROM ( " +
-                "SELECT Category FROM ReadingHistory WHERE Username = ? " +
-                "UNION ALL " +
-                "SELECT Category FROM Favorites WHERE Username = ? " +
-                ") AS CombinedCategories " +
-                "GROUP BY Category " +
-                "ORDER BY CategoryCount DESC LIMIT 1";
+    private List<CategoryWeight> initializeCategoryWeights(List<String> categories) {
+        List<CategoryWeight> categoryWeights = new ArrayList<>();
+        double initialWeight = 1.0 / categories.size();
+        for (String category : categories) {
+            categoryWeights.add(new CategoryWeight(category, initialWeight));
+        }
+        return categoryWeights;
+    }
+
+    private void updateCategoryWeights(String username, List<CategoryWeight> categoryWeights, Connection connection) throws SQLException {
+        String sql = "SELECT Category, Rating, Liked FROM ReadingHistory WHERE Username = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
-            statement.setString(2, username);
             ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getString("Category");
+
+            while (resultSet.next()) {
+                String category = resultSet.getString("Category");
+                int rating = resultSet.getInt("Rating");
+                boolean liked = resultSet.getBoolean("Liked");
+
+                for (CategoryWeight categoryWeight : categoryWeights) {
+                    if (categoryWeight.getCategory().equals(category)) {
+                        double ratingMultiplier = 1.0 + (rating / 5.0);
+                        double likeMultiplier = liked ? 1.5 : 1.0;
+                        categoryWeight.updateWeight(ratingMultiplier * likeMultiplier);
+                    }
+                }
             }
         }
-        return null;
+    }
+
+    private String getRecommendedCategory(List<CategoryWeight> categoryWeights) {
+        double totalWeight = categoryWeights.stream().mapToDouble(CategoryWeight::getWeight).sum();
+        categoryWeights.forEach(categoryWeight -> categoryWeight.setWeight(categoryWeight.getWeight() / totalWeight));
+
+        Optional<CategoryWeight> recommendedCategory = categoryWeights.stream()
+                .max((c1, c2) -> Double.compare(c1.getWeight(), c2.getWeight()));
+
+        return recommendedCategory.map(CategoryWeight::getCategory).orElse("No category found");
     }
 
     private List<String> getAvailableCategories(List<JSONObject> allArticles) {

@@ -30,7 +30,7 @@ public class Cli implements Runnable {
     }
 
     public static void main(String[] args) {
-
+        UserService userService =new UserService();
         ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
 
         for (int i = 1; i <= NUM_THREADS; i++) {
@@ -296,25 +296,30 @@ public class Cli implements Runnable {
                         break;
                     }
 
-                    // Initialize OllamaClient with prompt and userService
-                    OllamaClient ollamaClient = new OllamaClient("Analyzing user preferences for category recommendation", userService);
+                    // Initialize the OllamaClient with an appropriate prompt and pass the UserService instance
+                    OllamaClient ollamaClient = new OllamaClient("Analyzing user reading history to recommend a suitable category and article.", userService);
 
-                    // Get the recommended category from the Ollama model
+                    // Analyze user preferences and get a recommended category
                     String recommendedCategory = ollamaClient.analyzeAndRecommendCategory(loggedInUsername, jsonDataList);
+
+                    // Check if the model response was valid
                     if (recommendedCategory.startsWith("Error")) {
                         System.out.println(recommendedCategory);
+                        break;
                     } else {
                         System.out.println("Category recommended by the model: " + recommendedCategory);
+                    }
 
-                        // Try to find an unread article in the recommended category
-                        JSONObject recommendedArticle = ollamaClient.getArticleForCategory(loggedInUsername, recommendedCategory, jsonDataList);
-                        if (recommendedArticle != null) {
-                            System.out.println(ollamaClient.formatArticleDetails(recommendedArticle));
-                            userService.addToReadingHistory(loggedInUsername, (String) recommendedArticle.get("headline"), recommendedCategory, 0, false, false);
-                            System.out.println("The article has been added to your reading history.");
-                        } else {
-                            System.out.println("No new articles found for the recommended category: " + recommendedCategory);
-                        }
+                    // Get an article for the recommended category
+                    JSONObject article = ollamaClient.getArticleForCategory(loggedInUsername, recommendedCategory, jsonDataList);
+
+                    if (article != null) {
+                        // Display the article details and add it to the reading history
+                        System.out.println(ollamaClient.formatArticleDetails(article));
+                        userService.addToReadingHistory(loggedInUsername, (String) article.get("headline"), (String) article.get("category"), 0, false, false);
+                        System.out.println("The article has been added to your reading history.");
+                    } else {
+                        System.out.println("No new articles found for the recommended category: " + recommendedCategory);
                     }
                     break;
 
