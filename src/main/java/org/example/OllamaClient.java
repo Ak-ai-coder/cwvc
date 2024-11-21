@@ -15,6 +15,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class OllamaClient {
@@ -24,6 +25,9 @@ public class OllamaClient {
     private String prompt;
     private final UserService userService;
     private JSONObject lastRecommendedArticle;
+
+    // Thread pool for handling concurrent tasks
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
     public OllamaClient(String prompt, UserService userService) {
         this.prompt = prompt;
@@ -35,27 +39,33 @@ public class OllamaClient {
     }
 
     public String analyzeAndRecommendCategory(String username, List<JSONObject> allArticles) {
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            List<CategoryWeight> categoryWeights = initializeCategoryWeights(getAvailableCategories(allArticles));
-            updateCategoryWeights(username, categoryWeights, connection);
+        Future<String> future = executorService.submit(() -> {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                List<CategoryWeight> categoryWeights = initializeCategoryWeights(getAvailableCategories(allArticles));
+                updateCategoryWeights(username, categoryWeights, connection);
 
-            String recommendedCategory = getRecommendedCategory(categoryWeights);
+                String recommendedCategory = getRecommendedCategory(categoryWeights);
 
-            this.prompt = "User " + username + " has a history of reading articles. Based on the available categories and their interests, suggest the most suitable category from: " +
-                    categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.joining(", ")) + ".";
+                this.prompt = "User " + username + " has a history of reading articles. Based on the available categories and their interests, suggest the most suitable category from: " +
+                        categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.joining(", ")) + ".";
 
-            String response = sendRequest();
-            System.out.println("Model Response: " + response);
+                String response = sendRequest();
+                System.out.println("Model Response: " + response);
 
-            if (categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.toList()).contains(response.trim())) {
-                return response.trim();
-            } else {
-                System.out.println("Falling back to the most common category: " + recommendedCategory);
-                return recommendedCategory;
+                if (categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.toList()).contains(response.trim())) {
+                    return response.trim();
+                } else {
+                    System.out.println("Falling back to the most common category: " + recommendedCategory);
+                    return recommendedCategory;
+                }
             }
-        } catch (SQLException | IOException e) {
+        });
+
+        try {
+            return future.get(); // Waits for the result and returns it
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-            return "Error: Unable to connect to the database.";
+            return "Error: Unable to complete the recommendation task.";
         }
     }
 
@@ -108,21 +118,30 @@ public class OllamaClient {
     }
 
     public JSONObject getArticleForCategory(String username, String category, List<JSONObject> allArticles) {
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            List<String> readTitles = getReadTitles(username, connection);
+        Future<JSONObject> future = executorService.submit(() -> {
+            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                List<String> readTitles = getReadTitles(username, connection);
 
-            for (JSONObject article : allArticles) {
-                String title = (String) article.get("headline");
-                String articleCategory = (String) article.get("category");
+                for (JSONObject article : allArticles) {
+                    String title = (String) article.get("headline");
+                    String articleCategory = (String) article.get("category");
 
-                if (articleCategory.equals(category) && !readTitles.contains(title)) {
-                    return article;
+                    if (articleCategory.equals(category) && !readTitles.contains(title)) {
+                        return article;
+                    }
                 }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
+            return null;
+        });
+
+        try {
+            return future.get(); // Waits for the result and returns it
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     private List<String> getReadTitles(String username, Connection connection) throws SQLException {
@@ -148,48 +167,65 @@ public class OllamaClient {
                 "Description: " + article.get("short_description");
     }
 
-    public String sendRequest() throws IOException {
-        URL url = new URL("http://localhost:11434/api/generate");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json; utf-8");
-        conn.setRequestProperty("Accept", "application/json");
-        conn.setDoOutput(true);
+    public String sendRequest() {
+        Future<String> future = executorService.submit(() -> {
+            try {
+                URL url = new URL("http://localhost:11434/api/generate");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; utf-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
 
-        JSONObject jsonInput = new JSONObject();
-        jsonInput.put("model", "llama3.2");
-        jsonInput.put("prompt", prompt);
-        jsonInput.put("stream", false);
+                JSONObject jsonInput = new JSONObject();
+                jsonInput.put("model", "llama3.2");
+                jsonInput.put("prompt", prompt);
+                jsonInput.put("stream", false);
 
-        String jsonInputString = jsonInput.toJSONString();
+                String jsonInputString = jsonInput.toJSONString();
 
-        try (OutputStream os = conn.getOutputStream()) {
-            byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
+                try (OutputStream os = conn.getOutputStream()) {
+                    byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
+                }
 
-        int code = conn.getResponseCode();
-        if (code != HttpURLConnection.HTTP_OK) {
-            conn.disconnect();
-            return "Error: Unable to connect to Ollama API, response code: " + code;
-        }
+                int code = conn.getResponseCode();
+                if (code != HttpURLConnection.HTTP_OK) {
+                    conn.disconnect();
+                    return "Error: Unable to connect to Ollama API, response code: " + code;
+                }
 
-        StringBuilder response = new StringBuilder();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = in.readLine()) != null) {
-                response.append(line);
+                StringBuilder response = new StringBuilder();
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = in.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+                conn.disconnect();
+
+                JSONParser parser = new JSONParser();
+                try {
+                    JSONObject jsonResponse = (JSONObject) parser.parse(response.toString());
+                    return (String) jsonResponse.getOrDefault("response", "No response field found in JSON.");
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                    return "Error parsing the JSON response.";
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "Error sending request to Ollama API.";
             }
-        }
-        conn.disconnect();
+        });
 
-        JSONParser parser = new JSONParser();
         try {
-            JSONObject jsonResponse = (JSONObject) parser.parse(response.toString());
-            return (String) jsonResponse.getOrDefault("response", "No response field found in JSON.");
-        } catch (ParseException e) {
+            return future.get(); // Waits for the result and returns it
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-            return "Error parsing the JSON response.";
+            return "Error: Unable to complete the request.";
         }
+    }
+    public void shutdown(){
+        executorService.shutdown();
     }
 }
