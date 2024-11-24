@@ -79,7 +79,7 @@ public class OllamaClient {
     }
 
     private void updateCategoryWeights(String username, List<CategoryWeight> categoryWeights, Connection connection) throws SQLException {
-        String sql = "SELECT Category, Rating, Liked FROM ReadingHistory WHERE Username = ?";
+        String sql = "SELECT Category, Rating, Liked,Skipped FROM ReadingHistory WHERE Username = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
             ResultSet resultSet = statement.executeQuery();
@@ -88,12 +88,14 @@ public class OllamaClient {
                 String category = resultSet.getString("Category");
                 int rating = resultSet.getInt("Rating");
                 boolean liked = resultSet.getBoolean("Liked");
+                boolean skipped = resultSet.getBoolean("Skipped");
 
                 for (CategoryWeight categoryWeight : categoryWeights) {
                     if (categoryWeight.getCategory().equals(category)) {
                         double ratingMultiplier = 1.0 + (rating / 5.0);
                         double likeMultiplier = liked ? 1.5 : 1.0;
-                        categoryWeight.updateWeight(ratingMultiplier * likeMultiplier);
+                        double skipMultiplier = skipped ? 0.5 : 1.0;
+                        categoryWeight.updateWeight(ratingMultiplier * likeMultiplier *skipMultiplier);
                     }
                 }
             }

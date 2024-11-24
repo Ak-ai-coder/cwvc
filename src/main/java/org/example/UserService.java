@@ -10,65 +10,63 @@ public class UserService {
     private static final String DB_USER = "root"; // Replace with your DB username
     private static final String DB_PASSWORD = ""; // Replace with your DB password
 
-    // Single-threaded executor to stack and process database requests sequentially
-    private static final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
-
+    // Single-threaded executor to process database requests sequentially
+    private static  ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    public UserService(){
+        this.dbExecutor = Executors.newSingleThreadExecutor();
+    }
     // Sign-up method
     public void signUp(String username, String password, String email) {
         dbExecutor.submit(() -> {
-            if (isUserExists(username)) {
-                System.out.println("Username already exists. Please choose another.");
-            } else if (password.length() < 8) {
-                System.out.println("Password must be at least 8 characters long.");
-            } else {
-                try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                    String sql = "INSERT INTO User (username, password, email) VALUES (?, ?, ?)";
-                    PreparedStatement statement = connection.prepareStatement(sql);
-                    statement.setString(1, username);
-                    statement.setString(2, password);
-                    statement.setString(3, email);
+            try {
+                if (isUserExists(username)) {
+                    System.out.println("Username already exists. Please choose another.");
+                } else if (password.length() < 8) {
+                    System.out.println("Password must be at least 8 characters long.");
+                } else {
+                    try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                        String sql = "INSERT INTO User (username, password, email) VALUES (?, ?, ?)";
+                        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                            statement.setString(1, username);
+                            statement.setString(2, password);
+                            statement.setString(3, email);
 
-
-                    int rowsInserted = statement.executeUpdate();
-                    if (rowsInserted > 0) {
-                        System.out.println("User registered successfully.");
+                            int rowsInserted = statement.executeUpdate();
+                            if (rowsInserted > 0) {
+                                System.out.println("User registered successfully.");
+                            }
+                        }
                     }
-                } catch (SQLException e) {
-                    e.printStackTrace();
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
 
-    // Login method - checks if a user exists in the database
-
-
+    // Login method
     public boolean login(String username, String password) {
         try {
             Future<Boolean> future = dbExecutor.submit(() -> {
                 try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                     String sql = "SELECT * FROM User WHERE username = ? AND password = ?";
-                    PreparedStatement statement = connection.prepareStatement(sql);
-                    statement.setString(1, username);
-                    statement.setString(2, password);
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setString(1, username);
+                        statement.setString(2, password);
 
-                    ResultSet resultSet = statement.executeQuery();
-                    if (resultSet.next()) {
-                        System.out.println("Login successful!");
-                        updateLoginTime(username);
-                        return true;
-                    } else {
-                        System.out.println("Invalid username or password.");
-                        return false;
+                        ResultSet resultSet = statement.executeQuery();
+                        if (resultSet.next()) {
+                            System.out.println("Login successful!");
+                            updateLoginTime(username);
+                            return true;
+                        } else {
+                            System.out.println("Invalid username or password.");
+                            return false;
+                        }
                     }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    return false;
                 }
             });
-
-            // Wait for the result and return it
-            return future.get(); // This blocks until the task is completed
+            return future.get(); // Wait for the result and return it
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -77,42 +75,48 @@ public class UserService {
 
     // Check if a user exists in the database
     private boolean isUserExists(String username) {
-        final boolean[] userExists = {false};
-        dbExecutor.submit(() -> {
-            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT username FROM User WHERE username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                ResultSet resultSet = statement.executeQuery();
-                userExists[0] = resultSet.next();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        });
-        return userExists[0];
+        try {
+            Future<Boolean> future = dbExecutor.submit(() -> {
+                try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                    String sql = "SELECT username FROM User WHERE username = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setString(1, username);
+                        ResultSet resultSet = statement.executeQuery();
+                        return resultSet.next();
+                    }
+                }
+            });
+            return future.get(); // Wait for the result
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     // Reset password method
     public void resetPassword(String email, String newPassword) {
         dbExecutor.submit(() -> {
-            if (newPassword.length() < 8) {
-                System.out.println("New password must be at least 8 characters long.");
-                return;
-            }
-
-            try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT * FROM User WHERE email = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, email);
-
-                ResultSet resultSet = statement.executeQuery();
-                if (resultSet.next()) {
-                    updatePassword(email, newPassword);
-                    System.out.println("Password reset successfully.");
-                } else {
-                    System.out.println("No user found with the provided email.");
+            try {
+                if (newPassword.length() < 8) {
+                    System.out.println("New password must be at least 8 characters long.");
+                    return;
                 }
-            } catch (SQLException e) {
+
+                try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                    String sql = "SELECT * FROM User WHERE email = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                        statement.setString(1, email);
+
+                        ResultSet resultSet = statement.executeQuery();
+                        if (resultSet.next()) {
+                            updatePassword(email, newPassword);
+                            System.out.println("Password reset successfully.");
+                        } else {
+                            System.out.println("No user found with the provided email.");
+                        }
+                    }
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         });
@@ -123,11 +127,12 @@ public class UserService {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "UPDATE User SET password = ? WHERE email = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, newPassword);
-                statement.setString(2, email);
-                statement.executeUpdate();
-                System.out.println("Password updated in the database.");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, newPassword);
+                    statement.setString(2, email);
+                    statement.executeUpdate();
+                    System.out.println("Password updated in the database.");
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -139,9 +144,10 @@ public class UserService {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "UPDATE User SET loginTime = NOW() WHERE username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                statement.executeUpdate();
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    statement.executeUpdate();
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -153,10 +159,11 @@ public class UserService {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "UPDATE User SET logoutTime = NOW() WHERE username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                statement.executeUpdate();
-                System.out.println("Logout successful!");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    statement.executeUpdate();
+                    System.out.println("Logout successful!");
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -168,15 +175,16 @@ public class UserService {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "SELECT loginTime, logoutTime FROM User WHERE username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                ResultSet resultSet = statement.executeQuery();
-                System.out.println("Login/Logout History:");
-                if (resultSet.next()) {
-                    System.out.println("Login Time: " + resultSet.getTimestamp("loginTime"));
-                    System.out.println("Logout Time: " + resultSet.getTimestamp("logoutTime"));
-                } else {
-                    System.out.println("No history found for this user.");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    ResultSet resultSet = statement.executeQuery();
+                    System.out.println("Login/Logout History:");
+                    if (resultSet.next()) {
+                        System.out.println("Login Time: " + resultSet.getTimestamp("loginTime"));
+                        System.out.println("Logout Time: " + resultSet.getTimestamp("logoutTime"));
+                    } else {
+                        System.out.println("No history found for this user.");
+                    }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -184,56 +192,54 @@ public class UserService {
         });
     }
 
-    // View reading history for a user
+    // View reading history
     public void viewReadingHistory(String username) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "SELECT Title, Category, Rating, Liked, Skipped FROM ReadingHistory WHERE Username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                ResultSet resultSet = statement.executeQuery();
-                System.out.println("Reading History:");
-                boolean hasRecords = false;
-                while (resultSet.next()) {
-                    hasRecords = true;
-                    System.out.println("Title: " + resultSet.getString("Title"));
-                    System.out.println("Category: " + resultSet.getString("Category"));
-                    System.out.println("Rating: " + resultSet.getInt("Rating"));
-                    System.out.println("Liked: " + (resultSet.getInt("Liked") == 1 ? "Yes" : "No"));
-                    System.out.println("Skipped: " + (resultSet.getInt("Skipped") == 1 ? "Yes" : "No"));
-                    System.out.println("--------------------------");
-                }
-                if (!hasRecords) {
-                    System.out.println("No reading history found for this user.");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    ResultSet resultSet = statement.executeQuery();
+                    System.out.println("Reading History:");
+                    while (resultSet.next()) {
+                        System.out.println("Title: " + resultSet.getString("Title"));
+                        System.out.println("Category: " + resultSet.getString("Category"));
+                        System.out.println("Rating: " + resultSet.getInt("Rating"));
+                        System.out.println("Liked: " + (resultSet.getInt("Liked") == 1 ? "Yes" : "No"));
+                        System.out.println("Skipped: " + (resultSet.getInt("Skipped") == 1 ? "Yes" : "No"));
+                        System.out.println("--------------------------");
+                    }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         });
     }
-
     // View favorites for a user
     public void viewFavorites(String username) {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "SELECT Title, Category, Rating, Liked FROM Favorites WHERE Username = ?";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                ResultSet resultSet = statement.executeQuery();
-                System.out.println("Favorite Articles:");
-                boolean hasRecords = false;
-                while (resultSet.next()) {
-                    hasRecords = true;
-                    System.out.println("Title: " + resultSet.getString("Title"));
-                    System.out.println("Category: " + resultSet.getString("Category"));
-                    System.out.println("Rating: " + resultSet.getInt("Rating"));
-                    System.out.println("Liked: " + (resultSet.getInt("Liked") == 1 ? "Yes" : "No"));
-                    System.out.println("--------------------------");
-                }
-                if (!hasRecords) {
-                    System.out.println("No favorite articles found for this user.");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    ResultSet resultSet = statement.executeQuery();
+
+                    System.out.println("\n=== Favorite Articles ===");
+                    boolean hasFavorites = false;
+                    while (resultSet.next()) {
+                        hasFavorites = true;
+                        System.out.println("Title: " + resultSet.getString("Title"));
+                        System.out.println("Category: " + resultSet.getString("Category"));
+                        System.out.println("Rating: " + resultSet.getInt("Rating"));
+                        System.out.println("Liked: " + (resultSet.getBoolean("Liked") ? "Yes" : "No"));
+                        System.out.println("--------------------------");
+                    }
+                    if (!hasFavorites) {
+                        System.out.println("No favorite articles found for this user.");
+                    }
                 }
             } catch (SQLException e) {
+                System.err.println("An error occurred while fetching favorites.");
                 e.printStackTrace();
             }
         });
@@ -244,21 +250,21 @@ public class UserService {
         dbExecutor.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 String sql = "INSERT INTO ReadingHistory (Username, Title, Category, Rating, Liked, Skipped) VALUES (?, ?, ?, ?, ?, ?)";
-                PreparedStatement statement = connection.prepareStatement(sql);
-                statement.setString(1, username);
-                statement.setString(2, title);
-                statement.setString(3, category);
-                statement.setInt(4, rating);
-                statement.setBoolean(5, liked);
-                statement.setBoolean(6, skipped);
-                statement.executeUpdate();
-                System.out.println("Reading history entry added.");
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    statement.setString(2, title);
+                    statement.setString(3, category);
+                    statement.setInt(4, rating);
+                    statement.setBoolean(5, liked);
+                    statement.setBoolean(6, skipped);
+                    statement.executeUpdate();
+                    System.out.println("Reading history entry added.");
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         });
     }
-
 
     // Update reading history
     public void updateReadingHistory(String username, String title, String category, Integer rating, Boolean liked, Boolean skipped) {
@@ -268,49 +274,53 @@ public class UserService {
             String updateFavoriteSQL = "UPDATE Favorites SET Rating = ?, Liked = ? WHERE Username = ? AND Title = ?";
 
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                // Step 1: Update ReadingHistory entry
-                try (PreparedStatement historyStmt = connection.prepareStatement(updateHistorySQL)) {
-                    historyStmt.setInt(1, (rating != null) ? rating : 0);
-                    historyStmt.setInt(2, (liked != null && liked) ? 1 : 0);
-                    historyStmt.setInt(3, (skipped != null && skipped) ? 1 : 0);
-                    historyStmt.setString(4, username);
-                    historyStmt.setString(5, title);
+                connection.setAutoCommit(false);
 
-                    int rowsUpdated = historyStmt.executeUpdate();
-                    if (rowsUpdated > 0) {
-                        System.out.println("Reading history entry updated.");
+                try {
+                    // Update ReadingHistory entry
+                    try (PreparedStatement historyStmt = connection.prepareStatement(updateHistorySQL)) {
+                        historyStmt.setInt(1, rating != null ? rating : 0);
+                        historyStmt.setBoolean(2, liked != null && liked);
+                        historyStmt.setBoolean(3, skipped != null && skipped);
+                        historyStmt.setString(4, username);
+                        historyStmt.setString(5, title);
+                        historyStmt.executeUpdate();
                     }
-                }
 
-                // Step 2: Add to or update Favorites if criteria are met
-                if ((rating != null && rating > 0) || (liked != null && liked)) {
-                    try (PreparedStatement checkStmt = connection.prepareStatement("SELECT * FROM Favorites WHERE Username = ? AND Title = ?")) {
-                        checkStmt.setString(1, username);
-                        checkStmt.setString(2, title);
-                        ResultSet resultSet = checkStmt.executeQuery();
+                    // Add or update Favorites
+                    if ((rating != null && rating > 0) || (liked != null && liked)) {
+                        try (PreparedStatement checkStmt = connection.prepareStatement("SELECT * FROM Favorites WHERE Username = ? AND Title = ?")) {
+                            checkStmt.setString(1, username);
+                            checkStmt.setString(2, title);
+                            ResultSet resultSet = checkStmt.executeQuery();
 
-                        if (resultSet.next()) {
-                            // If entry exists, update it
-                            try (PreparedStatement updateStmt = connection.prepareStatement(updateFavoriteSQL)) {
-                                updateStmt.setInt(1, (rating != null) ? rating : 0);
-                                updateStmt.setBoolean(2, liked != null && liked);
-                                updateStmt.setString(3, username);
-                                updateStmt.setString(4, title);
-                                updateStmt.executeUpdate();
-                            }
-                        } else {
-                            // If entry does not exist, insert it
-                            try (PreparedStatement insertStmt = connection.prepareStatement(insertFavoriteSQL)) {
-                                insertStmt.setString(1, username);
-                                insertStmt.setString(2, title);
-                                insertStmt.setString(3, category);
-                                insertStmt.setInt(4, (rating != null) ? rating : 0);
-                                insertStmt.setBoolean(5, liked != null && liked);
-                                insertStmt.executeUpdate();
-                                System.out.println("Article added to favorites.");
+                            if (resultSet.next()) {
+                                try (PreparedStatement updateStmt = connection.prepareStatement(updateFavoriteSQL)) {
+                                    updateStmt.setInt(1, rating != null ? rating : 0);
+                                    updateStmt.setBoolean(2, liked != null && liked);
+                                    updateStmt.setString(3, username);
+                                    updateStmt.setString(4, title);
+                                    updateStmt.executeUpdate();
+                                }
+                            } else {
+                                try (PreparedStatement insertStmt = connection.prepareStatement(insertFavoriteSQL)) {
+                                    insertStmt.setString(1, username);
+                                    insertStmt.setString(2, title);
+                                    insertStmt.setString(3, category);
+                                    insertStmt.setInt(4, rating != null ? rating : 0);
+                                    insertStmt.setBoolean(5, liked != null && liked);
+                                    insertStmt.executeUpdate();
+                                }
                             }
                         }
                     }
+
+                    connection.commit();
+                } catch (SQLException e) {
+                    connection.rollback();
+                    e.printStackTrace();
+                } finally {
+                    connection.setAutoCommit(true);
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -321,5 +331,24 @@ public class UserService {
     // Shutdown executor service gracefully
     public void shutdown() {
         dbExecutor.shutdown();
+        try {
+            if (!dbExecutor.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                System.out.println("Forcing shutdown as tasks are not completed in time.");
+                dbExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Shutdown interrupted. Forcing shutdown.");
+            dbExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Helper to check if executor service is shut down
+    public boolean isExecutorShutdown() {
+        return dbExecutor.isShutdown();
+    }
+
+    public boolean isExecutorTerminated() {
+        return dbExecutor.isTerminated();
     }
 }

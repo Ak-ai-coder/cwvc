@@ -2,6 +2,7 @@ package org.example;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class UserServiceTest {
@@ -15,24 +16,43 @@ class UserServiceTest {
 
     @Test
     void signUp() {
-        // Arrange
-        String username = "testUser";
-        String password = "TestPass123";
-        String email = "testuser@example.com";
+        // Test case 1: Valid credentials
+        String username1 = "user1";
+        String password1 = "Password123";
+        String email1 = "user1@example.com";
 
-        // Act
-        userService.signUp(username, password, email);
+        userService.signUp(username1, password1, email1);
 
-        // Assert
-        // Check the console output or add a method to verify the user was added
-        // This could be a database check or a mock verification
+        // Test case 2: Username already exists
+        String username2 = "user1"; // Same as username1
+        String password2 = "Password456";
+        String email2 = "user2@example.com";
+
+        userService.signUp(username2, password2, email2);
+
+        // Test case 3: Invalid password length
+        String username3 = "user3";
+        String password3 = "short"; // Invalid password
+        String email3 = "user3@example.com";
+
+        userService.signUp(username3, password3, email3);
+
+        // Test case 4: Valid credentials with different data
+        String username4 = "user4";
+        String password4 = "SecurePass789";
+        String email4 = "user4@example.com";
+
+        userService.signUp(username4, password4, email4);
+
+        // No assertions here because signUp() directly prints to the console.
+        // For better testing, you could mock the database or add a method in UserService to verify the user exists.
     }
 
     @Test
     void login() {
         // Arrange
-        String username = "testUser";
-        String password = "TestPass123";
+        String username = "user1";
+        String password = "Password123";
 
         // Act
         boolean result = userService.login(username, password);
@@ -44,8 +64,8 @@ class UserServiceTest {
     @Test
     void resetPassword() {
         // Arrange
-        String email = "testuser@example.com";
-        String newPassword = "NewPass123";
+        String email = "user1@example.com";
+        String newPassword = "NewPassword123";
 
         // Act
         userService.resetPassword(email, newPassword);
@@ -57,7 +77,7 @@ class UserServiceTest {
     @Test
     void logout() {
         // Arrange
-        String username = "testUser";
+        String username = "user1";
 
         // Act
         userService.logout(username);
@@ -69,7 +89,7 @@ class UserServiceTest {
     @Test
     void viewLoginLogoutHistory() {
         // Arrange
-        String username = "testUser";
+        String username = "user1";
 
         // Act
         userService.viewLoginLogoutHistory(username);
@@ -81,7 +101,7 @@ class UserServiceTest {
     @Test
     void viewReadingHistory() {
         // Arrange
-        String username = "testUser";
+        String username = "user1";
 
         // Act
         userService.viewReadingHistory(username);
@@ -93,7 +113,7 @@ class UserServiceTest {
     @Test
     void viewFavorites() {
         // Arrange
-        String username = "testUser";
+        String username = "user1";
 
         // Act
         userService.viewFavorites(username);
@@ -105,9 +125,9 @@ class UserServiceTest {
     @Test
     void addToReadingHistory() {
         // Arrange
-        String username = "testUser";
-        String title = "Test Article";
-        String category = "Test Category";
+        String username = "user1";
+        String title = "Article 1";
+        String category = "Category A";
         int rating = 5;
         boolean liked = true;
         boolean skipped = false;
@@ -122,12 +142,12 @@ class UserServiceTest {
     @Test
     void updateReadingHistory() {
         // Arrange
-        String username = "testUser";
-        String title = "Test Article";
-        String category = "Test Category";
-        int rating = 5;
-        boolean liked = true;
-        boolean skipped = false;
+        String username = "user1";
+        String title = "Article 1";
+        String category = "Category A";
+        int rating = 4;
+        boolean liked = false;
+        boolean skipped = true;
 
         // Act
         userService.updateReadingHistory(username, title, category, rating, liked, skipped);
@@ -142,6 +162,6 @@ class UserServiceTest {
         userService.shutdown();
 
         // Assert
-        // Confirm that the executor service has shut down properly
+        assertTrue(userService.isExecutorShutdown(), "Executor service should be shut down.");
     }
 }

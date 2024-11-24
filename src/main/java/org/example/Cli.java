@@ -5,40 +5,30 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Cli implements Runnable {
-    private static final ReentrantLock lock = new ReentrantLock(); // Ensures thread safety
-    private static final int NUM_THREADS = 2; // Change based on your requirement
-    private static UserService userService;
-    private final int threadNumber;
+    private final UserService userService; // Instance-specific UserService
+    private final AtomicBoolean active = new AtomicBoolean(true); // Tracks if the thread is active
+    private List<JSONObject> jsonDataList; // Holds parsed articles data
+    private String loggedInUsername; // Stores the currently logged-in username
 
-    public Cli(int threadNumber, UserService userService) {
-        this.threadNumber = threadNumber;
-        Cli.userService = userService; // Shared resource
+    public Cli() {
+        this.userService = new UserService(); // Initialize the UserService
     }
 
     public static void main(String[] args) {
-        userService = new UserService();
-        ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-
-        for (int i = 1; i <= NUM_THREADS; i++) {
-            executorService.execute(new Cli(i, userService));
-        }
-        executorService.shutdown();
+        Cli cliInstance = new Cli();
+        Executors.newSingleThreadExecutor().execute(cliInstance); // Run the CLI in a single-threaded executor
     }
 
-    // Method to unzip the file
-    public static String unzip(String zipFilePath, String destDirectory) {
+    private static String unzip(String zipFilePath, String destDirectory) {
         File destDir = new File(destDirectory);
         if (!destDir.exists()) {
             destDir.mkdir();
@@ -62,7 +52,6 @@ public class Cli implements Runnable {
         return jsonFilePath;
     }
 
-    // Helper method to extract files
     private static void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath))) {
             byte[] bytesIn = new byte[4096];
@@ -73,8 +62,7 @@ public class Cli implements Runnable {
         }
     }
 
-    // Method to parse the local JSON file
-    public static List<JSONObject> parseJsonFile(String filePath) {
+    private static List<JSONObject> parseJsonFile(String filePath) {
         JSONParser parser = new JSONParser();
         List<JSONObject> jsonDataList = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -93,7 +81,6 @@ public class Cli implements Runnable {
         return jsonDataList;
     }
 
-    // Display articles with a more user-friendly format
     public static void displayArticles(List<JSONObject> articles, String username, UserService userService) {
         Scanner scanner = new Scanner(System.in);
         for (JSONObject article : articles) {
@@ -159,202 +146,202 @@ public class Cli implements Runnable {
 
     @Override
     public void run() {
-        lock.lock(); // Ensures thread-safe execution
-        try {
-            System.out.println("Starting CLI on Thread-" + threadNumber);
-            Scanner scanner = new Scanner(System.in);
-            int choice;
-            String loggedInUsername = null;
+        Scanner scanner = new Scanner(System.in);
 
-            // Initialize NewsAPI related variables
-            String zipFilePath = "/Users/akshankumarsen/Downloads/News_Category_Dataset_v3.json.zip"; // Update this path
-            String destDirectory = "News_Category_Dataset_v3.json"; // Update this path
-            String unzippedFilePath = unzip(zipFilePath, destDirectory);
-            List<JSONObject> jsonDataList = parseJsonFile(unzippedFilePath);
+        // File paths for news articles
+        String zipFilePath = "/Users/akshankumarsen/Downloads/News_Category_Dataset_v3.json.zip"; // Update this path
+        String destDirectory = "News_Category_Dataset_v3.json"; // Update this path
+        String unzippedFilePath = unzip(zipFilePath, destDirectory);
+        List<JSONObject> jsonDataList = parseJsonFile(unzippedFilePath);
 
-            do {
-                System.out.println("\n=== User Service Menu ===");
-                System.out.println("1. Sign Up");
-                System.out.println("2. Login");
-                System.out.println("3. Reset Password");
-                System.out.println("4. View Reading History");
-                System.out.println("5. View Login/Logout History");
-                System.out.println("6. Read News Articles");
-                System.out.println("7. View Favourite Articles");
-                System.out.println("8. Generate Recommendations");
-                System.out.println("9. Logout");
-                System.out.println("10. Exit");
-                System.out.print("Enter your choice: ");
-                choice = scanner.nextInt();
-                scanner.nextLine(); // Consume the newline
+        while (active.get()) {
+            System.out.println("\n=== User Service Menu ===");
+            System.out.println("1. Sign Up");
+            System.out.println("2. Login");
+            System.out.println("3. Reset Password");
+            System.out.println("4. View Reading History");
+            System.out.println("5. View Login/Logout History");
+            System.out.println("6. Read News Articles");
+            System.out.println("7. View Favourite Articles");
+            System.out.println("8. Generate Recommendations");
+            System.out.println("9. Logout");
+            System.out.println("10. Exit");
 
-                switch (choice) {
-                    case 1:
-                        System.out.print("Enter Username: ");
-                        String username = scanner.nextLine();
-                        System.out.print("Enter Password: ");
-                        String password = scanner.nextLine();
-                        System.out.print("Enter Email: ");
-                        String email = scanner.nextLine();
-                        userService.signUp(username, password, email);
+            System.out.print("Enter your choice: ");
+            int choice = scanner.nextInt();
+            scanner.nextLine(); // Consume newline
+
+            switch (choice) {
+                case 1:
+                    System.out.print("Enter Username: ");
+                    String username = scanner.nextLine();
+                    System.out.print("Enter Password: ");
+                    String password = scanner.nextLine();
+                    System.out.print("Enter Email: ");
+                    String email = scanner.nextLine();
+                    userService.signUp(username, password, email);
+                    break;
+
+                case 2:
+                    System.out.print("Enter Username: ");
+                    String loginUsername = scanner.nextLine();
+                    System.out.print("Enter Password: ");
+                    String loginPassword = scanner.nextLine();
+                    boolean loginSuccess = userService.login(loginUsername, loginPassword);
+                    if (loginSuccess) {
+                        System.out.println("Login successful.");
+                        loggedInUsername = loginUsername;
+                    } else {
+                        System.out.println("Login failed. Please try again.");
+                    }
+                    break;
+
+                case 3:
+                    System.out.print("Enter Email: ");
+                    String resetEmail = scanner.nextLine();
+                    System.out.print("Enter New Password: ");
+                    String newPassword = scanner.nextLine();
+                    userService.resetPassword(resetEmail, newPassword);
+                    break;
+
+                case 4:
+                    if (loggedInUsername == null) {
+                        System.out.println("Please log in first.");
                         break;
+                    }
+                    userService.viewReadingHistory(loggedInUsername);
+                    break;
 
-                    case 2:
-                        System.out.print("Enter Username: ");
-                        String loginUsername = scanner.nextLine();
-                        System.out.print("Enter Password: ");
-                        String loginPassword = scanner.nextLine();
-                        boolean loginSuccess = userService.login(loginUsername, loginPassword);
-                        if (loginSuccess) {
-                            System.out.println("Login successful.");
-                            loggedInUsername = loginUsername;
+                case 5:
+                    if (loggedInUsername == null) {
+                        System.out.println("Please log in first.");
+                        break;
+                    }
+                    userService.viewLoginLogoutHistory(loggedInUsername);
+                    break;
+
+                case 6:
+                    if (jsonDataList != null && !jsonDataList.isEmpty() && loggedInUsername != null) {
+                        System.out.println("\nAvailable categories:");
+                        Set<String> categories = jsonDataList.stream()
+                                .map(article -> (String) article.get("category"))
+                                .collect(Collectors.toSet());
+
+                        int categoryIndex = 1;
+                        List<String> categoryList = new ArrayList<>(categories);
+                        for (String category : categoryList) {
+                            System.out.println(categoryIndex + ". " + category);
+                            categoryIndex++;
+                        }
+
+                        System.out.print("Select a category by entering the number: ");
+                        int selectedCategoryIndex = scanner.nextInt();
+                        scanner.nextLine(); // Consume the newline
+
+                        if (selectedCategoryIndex > 0 && selectedCategoryIndex <= categoryList.size()) {
+                            String selectedCategory = categoryList.get(selectedCategoryIndex - 1);
+
+                            List<JSONObject> filteredArticles = jsonDataList.stream()
+                                    .filter(article -> selectedCategory.equals(article.get("category")))
+                                    .collect(Collectors.toList());
+
+                            displayArticles(filteredArticles, loggedInUsername, userService);
                         } else {
-                            System.out.println("Login failed. Please try again.");
+                            System.out.println("Invalid category selection.");
                         }
+                    } else {
+                        System.out.println("Please log in or ensure articles are available.");
+                    }
+                    break;
+
+                case 7:
+                    if (loggedInUsername == null) {
+                        System.out.println("Please log in first.");
                         break;
+                    }
+                    userService.viewFavorites(loggedInUsername);
+                    break;
 
-                    case 3:
-                        System.out.print("Enter Email: ");
-                        String resetEmail = scanner.nextLine();
-                        System.out.print("Enter New Password: ");
-                        String newPassword = scanner.nextLine();
-                        userService.resetPassword(resetEmail, newPassword);
+                case 8: // Generate Recommendations
+                    if (loggedInUsername == null) {
+                        System.out.println("Please log in first.");
                         break;
+                    }
 
-                    case 4:
-                        if (loggedInUsername == null) {
-                            System.out.println("Please log in first.");
-                            break;
-                        }
-                        userService.viewReadingHistory(loggedInUsername);
-                        break;
+                    // Copy variables to ensure they are effectively final
+                    final String usernameForLambda = loggedInUsername;
+                    final List<JSONObject> articlesForLambda = new ArrayList<>(jsonDataList); // Make a copy to ensure it's immutable in context
 
-                    case 5:
-                        if (loggedInUsername == null) {
-                            System.out.println("Please log in first.");
-                            break;
-                        }
-                        userService.viewLoginLogoutHistory(loggedInUsername);
-                        break;
+                    System.out.println("Generating recommendations in the background...");
+                    ExecutorService recommendationExecutor = Executors.newSingleThreadExecutor();
+                    recommendationExecutor.submit(() -> {
+                        try {
+                            // Initialize the OllamaClient
+                            OllamaClient ollamaClient = new OllamaClient("Analyzing user preferences...", userService);
 
-                    case 6:
-                        if (jsonDataList != null && !jsonDataList.isEmpty() && loggedInUsername != null) {
-                            System.out.println("\nAvailable categories:");
-                            Set<String> categories = jsonDataList.stream()
-                                    .map(article -> (String) article.get("category"))
-                                    .collect(Collectors.toSet());
+                            // Get the recommended category
+                            String recommendedCategory = ollamaClient.analyzeAndRecommendCategory(usernameForLambda, articlesForLambda);
 
-                            int categoryIndex = 1;
-                            List<String> categoryList = new ArrayList<>(categories);
-                            for (String category : categoryList) {
-                                System.out.println(categoryIndex + ". " + category);
-                                categoryIndex++;
-                            }
+                            if (recommendedCategory != null && !recommendedCategory.isEmpty()) {
+                                System.out.println("Model's most recommended category: " + recommendedCategory);
 
-                            System.out.print("Select a category by entering the number: ");
-                            int selectedCategoryIndex = scanner.nextInt();
-                            scanner.nextLine(); // Consume the newline
+                                // Fetch an article for the recommended category
+                                JSONObject recommendedArticle = ollamaClient.getArticleForCategory(usernameForLambda, recommendedCategory, articlesForLambda);
 
-                            if (selectedCategoryIndex > 0 && selectedCategoryIndex <= categoryList.size()) {
-                                String selectedCategory = categoryList.get(selectedCategoryIndex - 1);
+                                if (recommendedArticle != null) {
+                                    // Display the article details
+                                    System.out.println(ollamaClient.formatArticleDetails(recommendedArticle));
 
-                                List<JSONObject> filteredArticles = jsonDataList.stream()
-                                        .filter(article -> selectedCategory.equals(article.get("category")))
-                                        .collect(Collectors.toList());
-
-                                if (!filteredArticles.isEmpty()) {
-                                    displayArticles(filteredArticles, loggedInUsername, userService);
+                                    // Add the recommended article to the user's reading history
+                                    userService.addToReadingHistory(
+                                            usernameForLambda,
+                                            (String) recommendedArticle.get("headline"),
+                                            (String) recommendedArticle.get("category"),
+                                            0, // Default rating
+                                            false, // Not liked initially
+                                            false // Not skipped initially
+                                    );
+                                    System.out.println("The recommended article has been added to your reading history.");
                                 } else {
-                                    System.out.println("No articles found for the selected category.");
+                                    System.out.println("No suitable articles found for the recommended category: " + recommendedCategory);
                                 }
                             } else {
-                                System.out.println("Invalid category selection.");
+                                System.out.println("Error: No valid recommendations were generated.");
                             }
-                        } else {
-                            System.out.println("Please log in or ensure articles are available.");
-                        }
-                        break;
 
-                    case 7:
-                        if (loggedInUsername == null) {
-                            System.out.println("Please log in first.");
-                            break;
-                        }
-                        userService.viewFavorites(loggedInUsername);
-                        break;
-
-                    case 8:
-                        if (loggedInUsername == null) {
-                            System.out.println("Please log in first.");
-                            break;
-                        }
-
-                        // Ensure variables used in lambda are effectively final
-                        final String finalLoggedInUsername = loggedInUsername;
-                        final List<JSONObject> finalJsonDataList = jsonDataList;
-
-                        // Background task to generate recommendations
-                        System.out.println("Generating recommendations in the background...");
-                        ExecutorService recommendationExecutor = Executors.newSingleThreadExecutor();
-                        recommendationExecutor.submit(() -> {
-                            try {
-                                // Initialize the OllamaClient with a prompt and pass the UserService instance
-                                OllamaClient ollamaClient = new OllamaClient("Analyzing user reading history to recommend a suitable category and article.", userService);
-
-                                // Analyze user preferences and get a recommended category
-                                String recommendedCategory = ollamaClient.analyzeAndRecommendCategory(finalLoggedInUsername, finalJsonDataList);
-
-                                // Check if the model response was valid
-                                if (recommendedCategory.startsWith("Error")) {
-                                    System.out.println("Error generating recommendations: " + recommendedCategory);
-                                    return;
-                                }
-
-                                System.out.println("Category recommended by the model: " + recommendedCategory);
-
-                                // Get an article for the recommended category
-                                JSONObject article = ollamaClient.getArticleForCategory(finalLoggedInUsername, recommendedCategory, finalJsonDataList);
-
-                                if (article != null) {
-                                    // Display the article details and add it to the reading history
-                                    System.out.println(ollamaClient.formatArticleDetails(article));
-                                    userService.addToReadingHistory(finalLoggedInUsername, (String) article.get("headline"), (String) article.get("category"), 0, false, false);
-                                    System.out.println("The article has been added to your reading history.");
-                                } else {
-                                    System.out.println("No new articles found for the recommended category: " + recommendedCategory);
-                                }
-                            } catch (Exception e) {
-                                System.out.println("An error occurred while generating recommendations.");
-                                e.printStackTrace();
+                            // Return the model's most recommended category
+                            synchronized (System.out) {
+                                System.out.println("Recommendation process completed for: " + usernameForLambda);
+                                System.out.println("Recommended Category by Model: " + recommendedCategory);
                             }
-                        });
 
-                        recommendationExecutor.shutdown();
-                        break;
-                    case 9:
-                        if (loggedInUsername != null) {
-                            userService.logout(loggedInUsername);
-                            loggedInUsername = null;
-                            System.out.println("Logged out successfully.");
-                        } else {
-                            System.out.println("No user is currently logged in.");
+                        } catch (Exception e) {
+                            System.out.println("An error occurred while generating recommendations.");
+                            e.printStackTrace();
                         }
-                        break;
+                    });
+                    recommendationExecutor.shutdown();
+                    break;
 
-                    case 10:
-                        System.out.println("Exiting program...");
-                        break;
+                case 9:
+                    if (loggedInUsername != null) {
+                        userService.logout(loggedInUsername);
+                        loggedInUsername = null;
+                        System.out.println("Logged out successfully.");
+                    } else {
+                        System.out.println("No user is currently logged in.");
+                    }
+                    break;
 
-                    default:
-                        System.out.println("Invalid choice. Please try again.");
-                        break;
-                }
-            } while (choice != 10);
+                case 10:
+                    System.out.println("Exiting program...");
+                    active.set(false);
+                    break;
 
-            scanner.close();
-            System.out.println("CLI on Thread-" + threadNumber);
-        } finally {
-            lock.unlock(); // Release the lock
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+                    break;
+            }
         }
     }
 }
