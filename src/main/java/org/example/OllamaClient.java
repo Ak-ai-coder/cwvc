@@ -29,11 +29,10 @@ public class OllamaClient {
     // Thread pool for handling concurrent tasks
     private static final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
-    public OllamaClient(String prompt, UserService userService) {
-        this.prompt = prompt;
-        this.userService = userService;
+    public OllamaClient(String username, UserService userService) {
+        this.userService = userService; // Properly set the userService instance
+        this.prompt = "Generating recommendations based on user " + username + "'s history.";
     }
-
     public JSONObject getRecommendedArticle() {
         return lastRecommendedArticle;
     }
@@ -52,8 +51,11 @@ public class OllamaClient {
                 String response = sendRequest();
                 System.out.println("Model Response: " + response);
 
-                if (categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.toList()).contains(response.trim())) {
-                    return response.trim();
+                // Clean up the model's response to extract just the category name
+                String cleanedCategory = cleanModelResponse(response);
+
+                if (categoryWeights.stream().map(CategoryWeight::getCategory).collect(Collectors.toList()).contains(cleanedCategory)) {
+                    return cleanedCategory;
                 } else {
                     System.out.println("Falling back to the most common category: " + recommendedCategory);
                     return recommendedCategory;
@@ -67,6 +69,23 @@ public class OllamaClient {
             e.printStackTrace();
             return "Error: Unable to complete the recommendation task.";
         }
+    }
+
+    private String cleanModelResponse(String response) {
+        // Extract the category from the model's response (assuming it's the first word before any additional explanation)
+        String[] parts = response.split(":");
+        return parts.length > 0 ? parts[0].trim() : "No category found";
+    }
+
+    // Helper method to extract the first category from the model's response (if it contains multiple categories)
+    private String extractFirstCategoryFromResponse(String response) {
+        // Assuming the model response is a string containing categories separated by commas
+        if (response != null && !response.trim().isEmpty()) {
+            // Split the response by commas and return the first category
+            String[] categories = response.split(",");
+            return categories[0].trim(); // Return the first category (if available)
+        }
+        return null; // If no valid response is available
     }
 
     private List<CategoryWeight> initializeCategoryWeights(List<String> categories) {
