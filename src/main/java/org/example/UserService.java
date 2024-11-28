@@ -26,16 +26,26 @@ public class UserService {
         });
     }
 
-    public Future<Boolean> login(String username, String password) {
-        return executorService.submit(() -> {
-            boolean success = Databasehandler.login(username, password);
-            if (success) {
-                System.out.println("Login successful!");
-            } else {
-                System.out.println("Invalid username or password.");
-            }
-            return success;
-        });
+    public boolean login(String username, String password) {
+        // Check if the user is already logged in
+        if (Databasehandler.isUserLoggedIn(username)) {
+            System.out.println("User is already logged in. Please log out from the other session first.");
+            return false;
+        }
+
+        // Attempt to log in the user
+        boolean success = Databasehandler.login(username, password);
+
+        if (success) {
+            System.out.println("Login successful! Welcome, " + username + "!");
+        } else {
+            System.out.println("Invalid username or password. Please try again.");
+        }
+
+        return success;
+    }
+    public void logoutAllUsers() {
+        Databasehandler.logoutAllUsers();
     }
 
     public void resetPassword(String email, String newPassword) {

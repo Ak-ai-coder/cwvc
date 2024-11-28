@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class Cli implements Runnable {
     private final UserService userService; // Handles user operations
@@ -17,7 +19,20 @@ public class Cli implements Runnable {
         this.userService = new UserService();
         this.articles = new Articles(zipFilePath, destDirectory);
         this.recommendationExecutor = Executors.newSingleThreadExecutor();
+
+        // Add shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Application is shutting down. Logging out all users...");
+            Databasehandler.logoutAllUsers();
+            try {
+                Thread.sleep(1000); // Delay to ensure query execution completes
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }));
     }
+
+
 
     public static void main(String[] args) {
         String zipFilePath = "/Users/akshankumarsen/Downloads/News_Category_Dataset_v3.json.zip";
@@ -63,15 +78,15 @@ public class Cli implements Runnable {
                     String loginUsername = scanner.nextLine();
                     System.out.print("Enter Password: ");
                     String loginPassword = scanner.nextLine();
-                    try {
-                        boolean loginSuccess = userService.login(loginUsername, loginPassword).get();
-                        if (loginSuccess) {
-                            loggedInUsername = loginUsername;
-                            System.out.println("Welcome, " + loggedInUsername + "!");
-                        }
-                    } catch (Exception e) {
-                        System.out.println("An error occurred during login.");
-                        e.printStackTrace();
+
+                    // Call the login method directly without using Future
+                    boolean loginSuccess = userService.login(loginUsername, loginPassword);
+
+                    if (loginSuccess) {
+                        loggedInUsername = loginUsername;
+                        System.out.println("Welcome, " + loggedInUsername + "!");
+                    } else {
+                        System.out.println("Login failed. Please try again.");
                     }
                     break;
 
@@ -152,7 +167,6 @@ public class Cli implements Runnable {
                     if (loggedInUsername != null) {
                         userService.logout(loggedInUsername);
                         loggedInUsername = null;
-                        System.out.println("Logged out successfully.");
                     } else {
                         System.out.println("No user is currently logged in.");
                     }
@@ -160,8 +174,32 @@ public class Cli implements Runnable {
 
                 case 10:
                     System.out.println("Exiting program...");
+
+                    // Log out all users
+                    try {
+                        System.out.println("Logging out all users...");
+                        Databasehandler.logoutAllUsers();
+                    } catch (Exception e) {
+                        System.err.println("Error while logging out users: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+
+                    // Shut down the executor for async tasks
                     recommendationExecutor.shutdown();
-                    return;
+                    try {
+                        if (!recommendationExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                            System.out.println("Forcing shutdown of async tasks...");
+                            recommendationExecutor.shutdownNow();
+                        }
+                    } catch (InterruptedException e) {
+                        System.out.println("Error during executor shutdown. Forcing shutdown...");
+                        recommendationExecutor.shutdownNow();
+                        Thread.currentThread().interrupt();
+                    }
+
+                    // Exit the application
+                    System.exit(0);
+                    break;
 
                 default:
                     System.out.println("Invalid choice. Please try again.");

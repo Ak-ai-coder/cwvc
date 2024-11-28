@@ -52,21 +52,95 @@ public class Databasehandler {
             }
         });
     }
-
     public static boolean login(String username, String password) {
-        String query = "SELECT * FROM User WHERE username = ? AND password = ?";
-        return executeQueryWithResult(query, statement -> {
+        if (isUserLoggedIn(username)) {
+            System.out.println("User is already logged in.");
+            return false;
+        }
+
+        String queryCheck = "SELECT * FROM User WHERE username = ? AND password = ?";
+        String queryUpdate = "UPDATE User SET isLoggedIn = TRUE, loginTime = NOW() WHERE username = ?";
+
+        boolean loginSuccessful = executeQueryWithResult(queryCheck, statement -> {
             statement.setString(1, username);
             statement.setString(2, password);
         }, resultSet -> {
             if (resultSet.next()) {
+                // Update login status and time explicitly
+                updateLoginStatus(username, true);
                 updateLoginTime(username);
                 return true;
+            }
+            return false; // Credentials are invalid
+        });
+
+        if (loginSuccessful) {
+            System.out.println("User login status and login time updated successfully.");
+        } else {
+            System.out.println("Failed to log in the user.");
+        }
+
+        return loginSuccessful;
+    }
+
+    // Helper method to check if a user is already logged in
+    public static boolean isUserLoggedIn(String username) {
+        String query = "SELECT isLoggedIn FROM User WHERE username = ?";
+        return executeQueryWithResult(query, statement -> {
+            statement.setString(1, username);
+        }, resultSet -> {
+            if (resultSet.next()) {
+                return resultSet.getBoolean("isLoggedIn");
             }
             return false;
         });
     }
+    public static boolean logoutAllUsers() {
+        String query = "UPDATE User SET isLoggedIn = FALSE WHERE isLoggedIn = TRUE";
+        try {
+            executeUpdate(query, statement -> {
+                // No parameters to set in this query
+            }, rowsAffected -> {
+                if (rowsAffected > 0) {
+                    System.out.println("All logged-in users successfully logged out.");
+                } else {
+                    System.out.println("No users were logged out.");
+                }
+            });
+            return true; // Indicate successful execution
+        } catch (Exception e) {
+            System.err.println("Error during logoutAllUsers: " + e.getMessage());
+            e.printStackTrace();
+            return false; // Indicate failure
+        }
+    }
 
+    // Helper method to update the login status
+    private static void updateLoginStatus(String username, boolean isLoggedIn) {
+        String updateQuery = "UPDATE User SET isLoggedIn = ? WHERE username = ?";
+        executeUpdate(updateQuery, statement -> {
+            statement.setBoolean(1, isLoggedIn);
+            statement.setString(2, username);
+        }, rowsAffected -> {
+            if (rowsAffected > 0) {
+                System.out.println("Login status updated successfully for user: " + username);
+            } else {
+                System.out.println("Failed to update login status for user: " + username);
+            }
+        });
+    }
+
+    // Helper method to update login timestamp
+    private static void updateLoginTime(String username) {
+        String updateQuery = "UPDATE User SET loginTime = NOW() WHERE username = ?";
+        executeUpdate(updateQuery, statement -> statement.setString(1, username), rowsAffected -> {
+            if (rowsAffected > 0) {
+                System.out.println("Login time updated for user: " + username);
+            } else {
+                System.out.println("Failed to update login time for user: " + username);
+            }
+        });
+    }
     public static void resetPassword(String email, String newPassword) {
         String query = "UPDATE User SET password = ? WHERE email = ?";
         executeUpdate(query, statement -> {
@@ -81,23 +155,24 @@ public class Databasehandler {
         });
     }
 
-    public static void updateLoginTime(String username) {
-        String query = "UPDATE User SET loginTime = NOW() WHERE username = ?";
-        executeUpdate(query, statement -> statement.setString(1, username), rowsAffected -> {
-            if (rowsAffected > 0) {
-                System.out.println("Login time updated.");
-            }
-        });
+    public static void logout(String username) {
+        String query = "UPDATE User SET is_logged_in = ?, logoutTime = NOW() WHERE username = ?";
+        executeUpdate(query,
+                statement -> {
+                    statement.setBoolean(1, false); // Set is_logged_in to false
+                    statement.setString(2, username);
+                },
+                rowsAffected -> {
+                    if (rowsAffected > 0) {
+                        System.out.println("User " + username + " logged out successfully.");
+                    } else {
+                        System.out.println("Failed to log out user: " + username);
+                    }
+                }
+        );
     }
 
-    public static void logout(String username) {
-        String query = "UPDATE User SET logoutTime = NOW() WHERE username = ?";
-        executeUpdate(query, statement -> statement.setString(1, username), rowsAffected -> {
-            if (rowsAffected > 0) {
-                System.out.println("Logout successful!");
-            }
-        });
-    }
+
 
     public static void viewLoginLogoutHistory(String username) {
         String query = "SELECT loginTime, logoutTime FROM User WHERE username = ?";
