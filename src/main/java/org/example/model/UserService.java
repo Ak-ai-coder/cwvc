@@ -1,4 +1,4 @@
-package org.example;
+package org.example.model;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -158,12 +158,5 @@ public class UserService {
         return executorService.isTerminated();
     }
 
-    // Functional interface for recommendation handling
-    public interface RecommendationHandler {
-        String analyzeAndRecommendCategory(String username, List<JSONObject> articles);
 
-        JSONObject getArticleForCategory(String username, String category, List<JSONObject> articles);
-
-        String formatArticleDetails(JSONObject article);
-    }
 }

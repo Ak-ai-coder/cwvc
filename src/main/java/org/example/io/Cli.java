@@ -1,12 +1,12 @@
-package org.example;
-
+package org.example.io;
+import org.example.json.Articles;
+import org.example.model.*;
 import org.json.simple.JSONObject;
 
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class Cli implements Runnable {
@@ -79,7 +79,7 @@ public class Cli implements Runnable {
                     System.out.print("Enter Password: ");
                     String loginPassword = scanner.nextLine();
 
-                    // Call the login method directly without using Future
+
                     boolean loginSuccess = userService.login(loginUsername, loginPassword);
 
                     if (loginSuccess) {

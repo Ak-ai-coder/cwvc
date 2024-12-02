@@ -1,4 +1,4 @@
-package org.example;
+package org.example.model;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -24,7 +24,7 @@ public class OllamaClient {
     private static final String DB_PASSWORD = "";
     private String prompt;
     private final UserService userService;
-    private JSONObject lastRecommendedArticle;
+
 
     // Thread pool for handling concurrent tasks
     private static final ExecutorService executorService = Executors.newFixedThreadPool(5);
@@ -32,9 +32,6 @@ public class OllamaClient {
     public OllamaClient(String username, UserService userService) {
         this.userService = userService; // Properly set the userService instance
         this.prompt = "Generating recommendations based on user " + username + "'s history.";
-    }
-    public JSONObject getRecommendedArticle() {
-        return lastRecommendedArticle;
     }
 
     public String analyzeAndRecommendCategory(String username, List<JSONObject> allArticles) {
@@ -77,16 +74,7 @@ public class OllamaClient {
         return parts.length > 0 ? parts[0].trim() : "No category found";
     }
 
-    // Helper method to extract the first category from the model's response (if it contains multiple categories)
-    private String extractFirstCategoryFromResponse(String response) {
-        // Assuming the model response is a string containing categories separated by commas
-        if (response != null && !response.trim().isEmpty()) {
-            // Split the response by commas and return the first category
-            String[] categories = response.split(",");
-            return categories[0].trim(); // Return the first category (if available)
-        }
-        return null; // If no valid response is available
-    }
+
 
     private List<CategoryWeight> initializeCategoryWeights(List<String> categories) {
         List<CategoryWeight> categoryWeights = new ArrayList<>();
@@ -138,19 +126,18 @@ public class OllamaClient {
                 .collect(Collectors.toList());
     }
 
-    public JSONObject getArticleForCategory(String username, String category, List<JSONObject> allArticles) {
+    public JSONObject getArticleForCategory(String username, String recommendedCategory, List<JSONObject> allArticles) {
         Future<JSONObject> future = executorService.submit(() -> {
             try (Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                // Fetch the titles of articles already read by the user
                 List<String> readTitles = getReadTitles(username, connection);
 
-                for (JSONObject article : allArticles) {
-                    String title = (String) article.get("headline");
-                    String articleCategory = (String) article.get("category");
-
-                    if (articleCategory.equals(category) && !readTitles.contains(title)) {
-                        return article;
-                    }
-                }
+                // Filter articles to match the recommended category and exclude read titles
+                return allArticles.stream()
+                        .filter(article -> recommendedCategory.equalsIgnoreCase((String) article.get("category")))
+                        .filter(article -> !readTitles.contains((String) article.get("headline")))
+                        .findFirst()
+                        .orElse(null); // Return the first matching article or null if none are found
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -158,7 +145,7 @@ public class OllamaClient {
         });
 
         try {
-            return future.get(); // Waits for the result and returns it
+            return future.get(); // Wait for the result and return it
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             return null;

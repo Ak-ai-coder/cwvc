@@ -1,5 +1,6 @@
-package org.example;
-
+package org.example.json;
+import org.example.model.*;
+import org.example.io.*;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -21,9 +22,6 @@ public class Articles {
         loadDataset(); // Initial load
     }
 
-    /**
-     * Loads the dataset by unzipping and parsing the JSON file.
-     */
     public void loadDataset() {
         try {
             String unzippedFilePath = unzip(zipFilePath, destDirectory);
@@ -35,27 +33,12 @@ public class Articles {
         }
     }
 
-    /**
-     * Reloads the dataset to refresh data.
-     */
-    public void reloadDataset() {
-        loadDataset(); // Reinvoke the loading logic
-    }
 
-    /**
-     * Checks if articles are loaded.
-     *
-     * @return true if articles are loaded, false otherwise.
-     */
     public boolean isArticlesLoaded() {
         return jsonDataList != null && !jsonDataList.isEmpty();
     }
 
-    /**
-     * Retrieves the list of unique categories from the dataset.
-     *
-     * @return A list of categories.
-     */
+
     public List<String> getCategories() {
         Set<String> categories = new HashSet<>();
         for (JSONObject article : jsonDataList) {
@@ -67,12 +50,7 @@ public class Articles {
         return jsonDataList;
     }
 
-    /**
-     * Filters and retrieves articles by category.
-     *
-     * @param category The category to filter by.
-     * @return A list of articles belonging to the specified category.
-     */
+
     public List<JSONObject> getArticlesByCategory(String category) {
         List<JSONObject> filteredArticles = new ArrayList<>();
         for (JSONObject article : jsonDataList) {
@@ -83,13 +61,6 @@ public class Articles {
         return filteredArticles;
     }
 
-    /**
-     * Displays articles to the user and handles user interaction for liking, skipping, or rating articles.
-     *
-     * @param articles    The list of articles to display.
-     * @param username    The username of the logged-in user.
-     * @param userService The user service for updating the reading history.
-     */
     public static void displayArticles(List<JSONObject> articles, String username, UserService userService) {
         Scanner scanner = new Scanner(System.in);
 
@@ -159,14 +130,6 @@ public class Articles {
         }
     }
 
-    /**
-     * Unzips the dataset file and extracts it to the destination directory.
-     *
-     * @param zipFilePath   Path to the ZIP file.
-     * @param destDirectory Destination directory.
-     * @return Path to the extracted JSON file.
-     * @throws IOException If an error occurs during unzipping.
-     */
     private static String unzip(String zipFilePath, String destDirectory) throws IOException {
         File destDir = new File(destDirectory);
         if (!destDir.exists()) {
@@ -189,13 +152,6 @@ public class Articles {
         return jsonFilePath;
     }
 
-    /**
-     * Extracts a single file from the ZIP archive.
-     *
-     * @param zipIn    The ZIP input stream.
-     * @param filePath The destination file path.
-     * @throws IOException If an error occurs during file extraction.
-     */
     private static void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
         try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath))) {
             byte[] bytesIn = new byte[4096];
@@ -206,12 +162,6 @@ public class Articles {
         }
     }
 
-    /**
-     * Parses the JSON file and converts it into a list of JSON objects.
-     *
-     * @param filePath Path to the JSON file.
-     * @return List of JSON objects.
-     */
     private static List<JSONObject> parseJsonFile(String filePath) {
         List<JSONObject> jsonDataList = new ArrayList<>();
         JSONParser parser = new JSONParser();
