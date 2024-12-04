@@ -30,7 +30,7 @@ public class OllamaClient {
     private static final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
     public OllamaClient(String username, UserService userService) {
-        this.userService = userService; // Properly set the userService instance
+        this.userService = userService;
         this.prompt = "Generating recommendations based on user " + username + "'s history.";
     }
 
@@ -69,7 +69,7 @@ public class OllamaClient {
     }
 
     private String cleanModelResponse(String response) {
-        // Extract the category from the model's response (assuming it's the first word before any additional explanation)
+        // Extract the category from the model's response
         String[] parts = response.split(":");
         return parts.length > 0 ? parts[0].trim() : "No category found";
     }

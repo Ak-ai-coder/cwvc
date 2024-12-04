@@ -11,9 +11,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Articles {
-    private final String zipFilePath; // Path to the dataset ZIP file
-    private final String destDirectory; // Directory where the dataset will be extracted
-    private List<JSONObject> jsonDataList; // Parsed list of articles
+    private final String zipFilePath;
+    private final String destDirectory;
+    private List<JSONObject> jsonDataList;
 
     public Articles(String zipFilePath, String destDirectory) {
         this.zipFilePath = zipFilePath;

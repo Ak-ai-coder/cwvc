@@ -78,7 +78,7 @@ public class UserService {
         executorService.submit(() -> Databasehandler.logout(username));
     }
 
-    // Generate recommendations asynchronously
+
     // This method handles generating recommendations asynchronously
     public void generateRecommendations(String username, List<JSONObject> allArticles) {
         executorService.submit(() -> {
